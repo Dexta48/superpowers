@@ -73,7 +73,8 @@ def run_demo(tmp_path, monkeypatch, **client_kw):
     monkeypatch.setattr(cli.news, "upcoming_usd_events", lambda: [{"title": "CPI"}])
     client = demo.FakeClient(**client_kw)
     args = SimpleNamespace(symbols=["MNQ", "MGC", "SPX"], account=10_000, risk_pct=1.0,
-                           data_only=False, demo=False, out=str(tmp_path), webhook=None)
+                           data_only=False, demo=False, out=str(tmp_path / 'out'), webhook=None,
+                           vault=str(tmp_path / 'vault'), office=8765)
     office = Office()
     return cli.run_once(args, client, office), client, json.loads(office.json())
 
@@ -88,7 +89,16 @@ def test_pipeline_end_to_end(tmp_path, monkeypatch):
     assert '"risk_usd_per_contract"' in client.calls[3]["messages"][0]["content"]
     assert "MNQ — LONG → risk desk: **TAKE (reduced size)** (6/10)" in md
     assert "MGC — FLAT" in md and "SPX — LONG → risk desk: **REJECT**" in md
-    assert len(list(tmp_path.iterdir())) == 2
+    assert len(list((tmp_path / "out").iterdir())) == 2
+
+    # Obsidian vault: report note with properties, a log row per signal, office note linking both
+    desk = tmp_path / "vault" / "Trading Desk"
+    (rep,) = (desk / "Reports").iterdir()
+    assert rep.read_text().startswith("---\ndate: ") and "MNQ: long / TAKE (reduced size)" in rep.read_text()
+    log = (desk / "Signals log.md").read_text()
+    assert log.count("\n| 20") == 3 and "| SPX | long |" in log and "| MGC | flat |  |  |" in log
+    office_note = (desk / "Office.md").read_text()
+    assert 'src="http://127.0.0.1:8765"' in office_note and f"Reports/{rep.stem}|" in office_note
 
     # the office saw every desk work and finish
     assert state["phase"] == "idle" and state["run"] == 1

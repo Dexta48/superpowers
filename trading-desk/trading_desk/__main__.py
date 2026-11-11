@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import agents, data, news, report, risk
+from . import agents, data, news, obsidian, report, risk
 from .config import INSTRUMENTS
 from .office import Office
 
@@ -94,6 +94,9 @@ def run_once(args, client, office: Office) -> str:
             indent=1,
         )
     )
+    if args.vault:
+        latest = obsidian.write_run(args.vault, now_dt, md, signals, reviews, sheet)
+        obsidian.write_office_note(args.vault, args.office, latest)
     if args.webhook:
         report.push(args.webhook, md)
     return md
@@ -108,6 +111,9 @@ def main() -> None:
                    help="open the office: a local page where you watch the agents work (default port 8765)")
     p.add_argument("--demo", action="store_true",
                    help="scripted fake run: no API key, no market data, no cost — to try the office")
+    p.add_argument("--vault", metavar="PATH",
+                   help="Obsidian vault folder: files each report and a signals log there, plus an "
+                        "Office note that embeds the live office")
     p.add_argument("--every", type=float, metavar="MINUTES", help="repeat on this interval")
     p.add_argument("--webhook", help="Discord-style webhook URL to push each report to")
     p.add_argument("--out", default="reports", help="directory for report files")
@@ -130,6 +136,10 @@ def main() -> None:
     if args.office:
         office.serve(args.office)
         print(f"office open at http://127.0.0.1:{args.office}  (Ctrl-C to close)", file=sys.stderr)
+
+    if args.vault:
+        note = obsidian.write_office_note(args.vault, args.office)
+        print(f"Obsidian: open {note}", file=sys.stderr)
 
     keep_going = bool(args.every or args.office)
     while True:

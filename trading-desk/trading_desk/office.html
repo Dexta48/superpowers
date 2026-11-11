@@ -6,55 +6,72 @@
 <title>Trading desk — the office</title>
 <style>
 :root{
-  --bg:#f3f0ea; --wall:#e7e2d8; --floor:#d9d2c4; --card:#fffdf9; --ink:#22201c; --muted:#6f695e;
+  --bg:#f3f0ea; --wall:#e9e3d7; --wall2:#ddd5c5; --floor:#cbbfa9; --floor2:#bfb29a; --card:#fffdf9; --ink:#22201c; --muted:#6f695e;
   --line:#cfc7b8; --screen:#11161c; --screen-ink:#b9f3c9; --news:#2f6fb3; --signal:#b9770e; --risk:#a23b3b;
-  --up:#1d7a46; --down:#b23a3a; --flat:#6f695e; --desk:#b08d5e; --desk-edge:#8a6c44;
+  --up:#1d7a46; --down:#b23a3a; --flat:#6f695e; --desk:#b08d5e; --desk-edge:#8a6c44; --sky:#bfe0f5; --paper:#fffdf6;
 }
 @media (prefers-color-scheme: dark){:root{
-  --bg:#15171a; --wall:#1c1f24; --floor:#22262c; --card:#1f2329; --ink:#e9e6df; --muted:#9a968c;
+  --bg:#15171a; --wall:#262a31; --wall2:#1f2228; --floor:#3a352d; --floor2:#322e27; --card:#1f2329; --ink:#e9e6df; --muted:#9a968c;
   --line:#343a43; --screen:#0a0d11; --news:#6aa9e9; --signal:#e3a94a; --risk:#e07a7a;
-  --up:#56c98a; --down:#ef7f7f; --flat:#9a968c; --desk:#7a6242; --desk-edge:#5b4830;
+  --up:#56c98a; --down:#ef7f7f; --flat:#9a968c; --desk:#7a6242; --desk-edge:#5b4830; --sky:#1b2a44; --paper:#e9e6df;
 }}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
 header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
-h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.01em}
+h1{font-size:17px;margin:0;font-weight:650}
 .badge{font-size:11px;font-weight:700;letter-spacing:.08em;padding:2px 8px;border-radius:99px;background:var(--signal);color:#fff}
 #status{color:var(--muted);font-size:13px;flex:1;min-width:160px}
 button{font:inherit;font-weight:600;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
 button:disabled{opacity:.5;cursor:default}
-.wall{background:var(--wall);padding:14px 16px;display:flex;gap:10px;flex-wrap:wrap;border-bottom:6px solid var(--desk-edge)}
-.tick{background:var(--screen);color:#e8ecef;border-radius:8px;padding:8px 14px;min-width:120px;font-variant-numeric:tabular-nums}
+.tickers{display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px}
+.tick{background:var(--screen);color:#e8ecef;border-radius:8px;padding:6px 14px;min-width:120px;font-variant-numeric:tabular-nums}
 .tick b{display:block;font-size:11px;letter-spacing:.1em;color:#8b98a5}
-.tick span{font-size:18px;font-weight:600}
+.tick span{font-size:17px;font-weight:600}
 .tick i{font-style:normal;font-size:12px;margin-left:6px}
-.floor{background:var(--floor);padding:22px 16px 26px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:34px}
-.desk{position:relative;min-width:0}
-.desk:not(:last-child)::after{content:"→";position:absolute;right:-27px;top:118px;font-size:22px;color:var(--muted)}
-.desk.done:not(:last-child)::after{color:var(--c)}
-.who{display:flex;align-items:flex-end;gap:10px;height:74px}
-.avatar{width:56px;height:70px;flex:none}
-.avatar .head{fill:var(--c)} .avatar .body{fill:var(--c);opacity:.75}
-.working .avatar{animation:bob .9s ease-in-out infinite}
-@keyframes bob{50%{transform:translateY(-3px)}}
-.bubble{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:12px 12px 12px 2px;padding:6px 10px;font-size:12.5px;font-style:italic;color:var(--muted);height:62px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
-.bubble:empty{visibility:hidden}
-.monitor{background:var(--screen);color:var(--screen-ink);border-radius:10px 10px 0 0;border:5px solid #2b3138;border-bottom-width:9px;height:190px;padding:8px 10px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+
+/* the room */
+#room{display:block;width:100%;max-width:1200px;margin:0 auto;height:auto}
+#room text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.wall{fill:var(--wall)} .wall2{fill:var(--wall2)} .floor{fill:var(--floor)} .floor2{fill:var(--floor2)}
+.wood{fill:var(--desk)} .wood2{fill:var(--desk-edge)}
+.lap{fill:#3a414b} .lap.on{fill:#9df0b5}
+.leg,.arm{transform-box:fill-box;transform-origin:50% 0}
+.walk .leg.l,.walk .arm.r{animation:swing .5s ease-in-out infinite}
+.walk .leg.r,.walk .arm.l{animation:swing .5s ease-in-out infinite reverse}
+@keyframes swing{0%,100%{transform:rotate(22deg)}50%{transform:rotate(-22deg)}}
+.walk .bobber{animation:bob .25s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-2px)}}
+.type .arm.l{animation:tap .28s ease-in-out infinite}
+.type .arm.r{animation:tap .28s ease-in-out infinite .14s}
+@keyframes tap{0%,100%{transform:rotate(-55deg)}50%{transform:rotate(-70deg)}}
+.type .arm.r{transform:rotate(55deg)}
+@keyframes tapr{0%,100%{transform:rotate(55deg)}50%{transform:rotate(70deg)}}
+.type .arm.r{animation-name:tapr}
+.paper{display:none} .carry .paper{display:block}
+.tag{font-size:12px;font-weight:700;text-anchor:middle;fill:var(--ink)}
+.say rect{fill:var(--card);stroke:var(--line)} .say text{font-size:11.5px;text-anchor:middle;fill:var(--ink)}
+.bd{font-size:11px;fill:#33302a} .bdh{font-size:10px;font-weight:700;letter-spacing:.1em;fill:#6f695e}
+@media (prefers-reduced-motion: reduce){#room *{animation:none!important}}
+
+/* desk panels */
+.panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px 16px;max-width:1200px;margin:0 auto}
+.desk{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.top{padding:7px 10px;display:flex;align-items:center;gap:8px;background:var(--c)}
+.lamp{width:10px;height:10px;border-radius:50%;background:#fff6;flex:none}
+.working .lamp{background:#f2c230;box-shadow:0 0 8px #f2c230}
+.done .lamp{background:#7be0a3} .error .lamp{background:#ff8d8d}
+.plate{font-weight:700;color:#fff;text-shadow:0 1px 1px #0005}
+.doing{margin-left:auto;font-size:12px;color:#fff;text-align:right}
+.thought{font-size:12.5px;font-style:italic;color:var(--muted);padding:6px 10px;height:60px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.monitor{background:var(--screen);color:var(--screen-ink);height:150px;padding:8px 10px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
 .working .monitor span::after{content:"▍";animation:blink 1s steps(2) infinite}
 @keyframes blink{50%{opacity:0}}
-.top{background:var(--desk);border-bottom:5px solid var(--desk-edge);border-radius:3px;padding:8px 10px;display:flex;align-items:center;gap:8px}
-.lamp{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none}
-.working .lamp{background:#f2c230;box-shadow:0 0 8px #f2c230}
-.done .lamp{background:var(--up)} .error .lamp{background:var(--down)}
-.plate{font-weight:700;color:#fff;text-shadow:0 1px 1px #0005}
-.doing{margin-left:auto;font-size:12px;color:#fff;opacity:.9;text-align:right}
-.log{list-style:none;margin:8px 0 0;padding:0;font-size:12.5px;color:var(--muted);min-height:38px}
+.summary{font-size:13px;font-weight:600;padding:6px 10px 0}
+.log{list-style:none;margin:0;padding:4px 10px 8px;font-size:12.5px;color:var(--muted);min-height:26px}
 .log li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.summary{font-size:13px;font-weight:600;margin-top:4px}
-@media (prefers-reduced-motion: reduce){.working .avatar,.working .monitor span::after{animation:none}}
-main{padding:18px 16px 40px;max-width:1200px;margin:0 auto}
+main{padding:6px 16px 40px;max-width:1200px;margin:0 auto}
 h2{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px}
-.err{background:var(--down);color:#fff;padding:8px 12px;border-radius:8px;margin-bottom:12px}
+.err{background:var(--down);color:#fff;padding:8px 12px;border-radius:8px;margin:12px 0}
 .board{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 .sig{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--d);border-radius:10px;padding:12px 14px}
 .sig h3{margin:0 0 4px;font-size:16px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
@@ -66,7 +83,7 @@ h2{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute
 pre.brief{white-space:pre-wrap;font:inherit;font-size:14px}
 .empty{color:var(--muted)}
 footer{color:var(--muted);font-size:12px;margin-top:24px}
-@media (max-width:820px){.floor{grid-template-columns:1fr;gap:26px}.desk:not(:last-child)::after{content:"↓";right:auto;left:50%;top:auto;bottom:-27px}}
+@media (max-width:820px){.panels{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -75,8 +92,33 @@ footer{color:var(--muted);font-size:12px;margin-top:24px}
   <div id="status">connecting…</div>
   <button id="run">Run now</button>
 </header>
-<section class="wall" id="wall" aria-label="Prices"></section>
-<section class="floor" id="floor" aria-label="Agents"></section>
+<div class="tickers" id="wall" aria-label="Prices"></div>
+
+<svg id="room" viewBox="0 0 1000 440" role="img" aria-label="The office: Nia at the news desk, Sol at the signal desk and Rook at the risk desk">
+  <rect class="wall" width="1000" height="252"/><rect class="wall2" y="244" width="1000" height="8"/>
+  <rect class="floor" y="252" width="1000" height="188"/>
+  <g class="floor2"><rect y="300" width="1000" height="2"/><rect y="360" width="1000" height="2"/><rect y="425" width="1000" height="2"/></g>
+  <!-- window -->
+  <rect x="585" y="48" width="120" height="120" rx="4" class="wood2"/><rect x="591" y="54" width="108" height="108" fill="var(--sky)"/>
+  <rect x="643" y="54" width="4" height="108" class="wood2"/><rect x="591" y="106" width="108" height="4" class="wood2"/>
+  <!-- coffee corner -->
+  <rect x="28" y="252" width="150" height="50" rx="3" class="wood"/><rect x="28" y="252" width="150" height="7" class="wood2"/>
+  <rect x="52" y="196" width="44" height="56" rx="5" fill="#3a414b"/><rect x="60" y="204" width="28" height="14" rx="2" fill="#9db4c8"/>
+  <rect x="66" y="232" width="16" height="16" rx="2" fill="#eee"/><circle cx="88" cy="226" r="3" fill="#e2574c"/>
+  <text x="74" y="186" text-anchor="middle" class="bdh">COFFEE</text>
+  <!-- plant -->
+  <rect x="948" y="262" width="30" height="34" rx="4" fill="#a8623f"/>
+  <g fill="#3f8f5a"><ellipse cx="963" cy="240" rx="9" ry="26"/><ellipse cx="948" cy="248" rx="8" ry="20" transform="rotate(-25 948 248)"/><ellipse cx="978" cy="248" rx="8" ry="20" transform="rotate(25 978 248)"/></g>
+  <!-- signal board on the wall -->
+  <rect x="790" y="40" width="190" height="150" rx="5" class="wood2"/><rect x="797" y="47" width="176" height="136" fill="var(--paper)"/>
+  <text x="885" y="65" text-anchor="middle" class="bdh">SIGNAL BOARD</text>
+  <g id="pins"></g>
+  <g id="back"></g>
+  <g id="desks"></g>
+  <g id="front"></g>
+</svg>
+
+<section class="panels" id="panels" aria-label="What each agent is doing"></section>
 <main>
   <div class="err" id="err" hidden></div>
   <h2>Signal board</h2>
@@ -86,30 +128,136 @@ footer{color:var(--muted);font-size:12px;margin-top:24px}
   <footer>Analysis generated by an AI model from delayed data. Not financial advice. This page only talks to the program running on your own machine.</footer>
 </main>
 <script>
-const DESKS=[["news","News desk","var(--news)","waiting for the next run"],
-             ["signal","Signal desk","var(--signal)","waiting for the news briefing"],
-             ["risk","Risk desk","var(--risk)","waiting for signals to review"]];
+const NS="http://www.w3.org/2000/svg";
 const $=id=>document.getElementById(id);
 const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e};
-const SVG='<svg class="avatar" viewBox="0 0 56 70" aria-hidden="true"><circle class="head" cx="28" cy="20" r="14"/><path class="body" d="M6 70c0-18 10-28 22-28s22 10 22 28z"/></svg>';
-const ui={};
-for(const [id,name,color,idle] of DESKS){
-  const d=el("div","desk");d.style.setProperty("--c",color);
-  const who=el("div","who");who.innerHTML=SVG;const bubble=el("div","bubble");who.append(bubble);
-  const mon=el("div","monitor");const txt=el("span");mon.append(txt);
-  const top=el("div","top");top.style.background=color;
-  const doing=el("span","doing");top.append(el("span","lamp"),el("span","plate",name),doing);
+const svg=(tag,attrs,text)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e};
+const SEAT_Y=345, AISLE_Y=415, SPEED=120;
+const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// id, name, role, colour, desk centre x, idle text, skin, look
+const TEAM=[
+ {id:"news",name:"Nia",role:"News desk",color:"var(--news)",cx:270,idle:"waiting for the next run",skin:"#8d5b3f",look:"nia"},
+ {id:"signal",name:"Sol",role:"Signal desk",color:"var(--signal)",cx:520,idle:"waiting for the news briefing",skin:"#f0c9a0",look:"sol"},
+ {id:"risk",name:"Rook",role:"Risk desk",color:"var(--risk)",cx:770,idle:"waiting for signals to review",skin:"#d9a877",look:"rook"},
+];
+const SPOTS={coffee:{x:130,y:SEAT_Y},window:{x:645,y:SEAT_Y},board:{x:890,y:SEAT_Y}};
+const LOOKS={
+ nia:`<circle cx="0" cy="-101" r="6" fill="#2a1d18"/><path d="M-13.5 -84a13.5 13.5 0 0 1 27 0q-13 -9 -27 0z" fill="#2a1d18"/>
+      <path d="M-14 -86a14 14 0 0 1 28 0" fill="none" stroke="#444" stroke-width="2.5"/><rect x="-17" y="-89" width="5" height="9" rx="2" fill="#444"/>
+      <path d="M-14 -81q0 8 8 8" fill="none" stroke="#444" stroke-width="1.5"/>`,
+ sol:`<path d="M-13.5 -86a13.5 13.5 0 0 1 27 0z" fill="#d18a12"/><rect x="2" y="-88" width="19" height="4" rx="2" fill="#a86c08"/>`,
+ rook:`<path d="M-13.5 -85a13.5 13.5 0 0 1 27 0q-6 -5 -13 -5t-14 5z" fill="#8a8a8a"/>
+      <g fill="none" stroke="#222" stroke-width="1.6"><circle cx="-5" cy="-84" r="4.2"/><circle cx="5" cy="-84" r="4.2"/><path d="M-0.8 -84h1.6"/></g>
+      <rect x="-3" y="-66" width="6" height="16" fill="#fff" opacity=".85"/><path d="M0 -66l-3 6 3 12 3 -12z" fill="#333"/>`,
+};
+const ui={}, chars={};
+for(const t of TEAM){
+  // desk furniture
+  const d=svg("g");
+  d.append(svg("rect",{x:t.cx-85,y:300,width:170,height:13,rx:3,class:"wood2"}),
+           svg("rect",{x:t.cx-80,y:313,width:160,height:54,class:"wood"}),
+           svg("rect",{x:t.cx-80,y:313,width:160,height:54,fill:t.color,opacity:".28"}),
+           svg("text",{x:t.cx,y:346,"text-anchor":"middle","font-size":"13","font-weight":"700",fill:"#fff"},t.role.toUpperCase()));
+  const lap=svg("rect",{x:t.cx+34,y:284,width:30,height:17,rx:2,class:"lap"});d.append(lap);
+  $("desks").append(d);
+  // character (origin at the feet)
+  const g=svg("g",{class:"char"});
+  g.innerHTML=`<g class="flip"><g class="bobber">
+    <rect class="leg l" x="-10" y="-31" width="8" height="31" rx="3.5" fill="#2b2f3a"/><rect class="leg r" x="2" y="-31" width="8" height="31" rx="3.5" fill="#2b2f3a"/>
+    <rect class="arm l" x="-20" y="-68" width="8" height="29" rx="4" fill="${t.color}"/><rect class="arm r" x="12" y="-68" width="8" height="29" rx="4" fill="${t.color}"/>
+    <rect x="-14" y="-71" width="28" height="45" rx="9" fill="${t.color}"/><rect x="-14" y="-71" width="28" height="45" rx="9" fill="#000" opacity=".12"/>
+    <circle cx="0" cy="-84" r="13" fill="${t.skin}"/><circle cx="-4.6" cy="-84" r="1.5" fill="#222"/><circle cx="4.6" cy="-84" r="1.5" fill="#222"/>
+    ${LOOKS[t.look]}
+    <g class="paper"><rect x="15" y="-58" width="14" height="18" fill="#fff" stroke="#888"/><path d="M18 -53h8M18 -49h8M18 -45h5" stroke="#aaa"/></g>
+  </g></g><text class="tag" y="-110">${t.name}</text><g class="say" display="none"><rect y="-150" height="20" rx="10"/><text y="-136"></text></g>`;
+  $("back").append(g);
+  chars[t.id]={t,g,lap,x:t.cx,y:SEAT_Y,path:[],carry:false,status:"idle",wanderAt:performance.now()+4000+Math.random()*6000,layer:"back"};
+  // detail panel
+  const p=el("div","desk");p.style.setProperty("--c",t.color);
+  const top=el("div","top"),doing=el("span","doing");top.append(el("span","lamp"),el("span","plate",`${t.name} · ${t.role}`),doing);
+  const thought=el("div","thought"),mon=el("div","monitor"),txt=el("span");mon.append(txt);
   const summary=el("div","summary"),log=el("ul","log");
-  d.append(who,mon,top,summary,log);$("floor").append(d);
-  ui[id]={d,bubble,txt,doing,summary,log,idle};
+  p.append(top,thought,mon,summary,log);$("panels").append(p);
+  ui[t.id]={p,doing,thought,txt,summary,log};
 }
+const atSeat=c=>c.x===c.t.cx&&c.y===SEAT_Y;
+// Walk via the aisle so nobody cuts through a desk.
+function route(c,to,then){
+  const pts=[];
+  if(c.y<AISLE_Y){ if(c.x===c.t.cx) pts.push({x:c.t.cx-110,y:c.y}); pts.push({x:pts.length?pts[0].x:c.x,y:AISLE_Y}); }
+  if(to.seat){ pts.push({x:to.x-110,y:AISLE_Y},{x:to.x-110,y:SEAT_Y},{x:to.x,y:SEAT_Y}); }
+  else{ pts.push({x:to.x,y:AISLE_Y}); if(to.y<AISLE_Y) pts.push({x:to.x,y:to.y}); }
+  pts[pts.length-1].then=then; c.path=pts;
+  if(still){ const last=pts[pts.length-1]; c.x=last.x; c.y=last.y; c.path=[]; if(then)then(); }
+}
+const home=c=>({x:c.t.cx,y:SEAT_Y,seat:true});
+function goHome(c,then){ if(atSeat(c)&&!c.path.length){ if(then)then(); } else route(c,home(c),then); }
+let pinnedRun=-1, latest=null;
+function say(c,text){
+  const s=c.g.querySelector(".say"); s.setAttribute("display",text?"inline":"none"); if(!text)return;
+  const w=Math.max(44,text.length*6.4+18); const r=s.firstChild; r.setAttribute("x",-w/2); r.setAttribute("width",w); s.lastChild.textContent=text;
+}
+function pins(){
+  const rows=latest&&pinnedRun===latest.run?latest.board:[];
+  $("pins").replaceChildren(...rows.slice(0,5).map((b,i)=>{
+    const g=svg("g",{transform:`translate(806 ${86+i*21})`});
+    const col=b.direction==="long"?"#1d7a46":b.direction==="short"?"#b23a3a":"#6f695e";
+    g.append(svg("rect",{width:158,height:17,rx:3,fill:"#fff",stroke:"#d8d2c4"}),svg("rect",{width:4,height:17,fill:col}),
+      svg("text",{x:10,y:12.5,class:"bd","font-weight":"700"},b.symbol),svg("text",{x:44,y:12.5,class:"bd",fill:col},b.direction.toUpperCase()),
+      svg("text",{x:152,y:12.5,class:"bd","text-anchor":"end"},b.verdict.replace(" (reduced size)"," ½")));
+    return g}));
+}
+function onState(s){
+  const first=latest===null, newRun=!first&&s.run!==latest.run; latest=s;
+  if(first&&s.phase==="idle") pinnedRun=s.run;       // page opened after a finished run
+  for(const [i,t] of TEAM.entries()){
+    const c=chars[t.id], st=s.desks[t.id].status, was=c.status; c.status=st;
+    if(newRun){ c.carry=false; goHome(c); }
+    if(st==="working"&&was!=="working") goHome(c);
+    if(st==="done"&&was==="working"){             // hand the work on
+      c.carry=true;
+      const next=TEAM[i+1];
+      const drop=()=>{ c.carry=false; if(!next){ pinnedRun=latest.run; pins(); } c.wanderAt=performance.now()+1500; goHome(c); };
+      route(c, next?{x:next.cx,y:AISLE_Y}:SPOTS.board, drop);
+    }
+    say(c, st==="working"?(s.desks[t.id].doing||"working")+"…":st==="error"?"something broke!":"");
+  }
+  pins();
+}
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1000); last=now;
+  for(const c of Object.values(chars)){
+    let moving=false;
+    if(c.path.length){
+      const p=c.path[0], dx=p.x-c.x, dy=p.y-c.y, dist=Math.hypot(dx,dy), step=SPEED*dt;
+      if(dist<=step){ c.x=p.x; c.y=p.y; c.path.shift(); if(p.then)p.then(); }
+      else{ c.x+=dx/dist*step; c.y+=dy/dist*step; if(Math.abs(dx)>1) c.g.querySelector(".flip").setAttribute("transform",dx<0?"scale(-1 1)":""); }
+      moving=true;
+    }else if(c.status!=="working"&&latest&&now>c.wanderAt){   // stretch the legs between jobs
+      c.wanderAt=now+9000+Math.random()*9000;
+      if(atSeat(c)) route(c, Math.random()<.5?SPOTS.coffee:SPOTS.window, ()=>{c.wanderAt=performance.now()+2500+Math.random()*2500});
+      else goHome(c);
+    }
+    const layer=c.y>370?"front":"back";
+    if(layer!==c.layer){ c.layer=layer; $(layer).append(c.g); }
+    c.g.setAttribute("transform",`translate(${c.x.toFixed(1)} ${c.y.toFixed(1)})`);
+    const typing=!moving&&c.status==="working"&&atSeat(c);
+    c.g.setAttribute("class","char"+(moving?" walk":"")+(typing?" type":"")+(c.carry?" carry":""));
+    c.lap.setAttribute("class","lap"+(typing?" on":""));
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
 const fmt=n=>n==null?"—":n.toLocaleString(undefined,{maximumFractionDigits:2});
 function render(s){
   $("demo").hidden=!s.demo;
   const busy=s.phase!=="idle";
   $("run").disabled=busy;
-  let st=busy?`Run ${s.run} in progress — ${s.phase==="data"?"loading charts":s.phase+" desk working"}`
-             :s.run?`Run ${s.run} finished · started ${s.started}`:"Idle";
+  const who={news:"Nia is on the news",signal:"Sol is reading the charts",risk:"Rook is reviewing the signals",data:"loading charts"};
+  let st=busy?`Run ${s.run} in progress — ${who[s.phase]||s.phase}`:s.run?`Run ${s.run} finished · started ${s.started}`:"Idle";
   if(!busy&&s.next_run_at)st+=` · next run ${new Date(s.next_run_at*1000).toLocaleTimeString()}`;
   $("status").textContent=st;
   $("err").hidden=!s.error;$("err").textContent=s.error?"Run failed: "+s.error:"";
@@ -117,12 +265,12 @@ function render(s){
     const e=el("div","tick");e.append(el("b",null,t.symbol),el("span","",fmt(t.last)));
     if(t.chg!=null){const i=el("i",null,(t.chg>=0?"+":"")+t.chg+"%");i.style.color=t.chg>=0?"#56c98a":"#ef7f7f";e.append(i)}
     return e}));
-  for(const [id] of DESKS){
-    const k=s.desks[id],u=ui[id];
-    u.d.className="desk "+k.status;
-    u.bubble.textContent=k.status==="working"?k.thought:"";
-    u.txt.textContent=k.screen||(k.status==="idle"?"":"");
-    u.doing.textContent=k.status==="working"?k.doing:k.status==="idle"?u.idle:k.status;
+  for(const t of TEAM){
+    const k=s.desks[t.id],u=ui[t.id];
+    u.p.className="desk "+k.status;
+    u.thought.textContent=k.thought;
+    u.txt.textContent=k.screen;
+    u.doing.textContent=k.status==="working"?k.doing:k.status==="idle"?t.idle:k.status;
     u.summary.textContent=k.summary;
     u.log.replaceChildren(...k.log.map(l=>el("li",null,l)));
   }
@@ -139,12 +287,13 @@ function render(s){
         c.append(el("p","lv",`Entry ${fmt(b.entry)} · Stop ${fmt(b.stop)} · Targets ${b.targets.map((t,i)=>fmt(t)+(b.rr[i]!=null?` (${b.rr[i]}R)`:"")).join(", ")}`));
         c.append(el("p","lv",`Risk $${fmt(b.risk_usd)} per contract · up to ${b.contracts} contract(s) in budget`));
       }
-      if(b.weakness)c.append(el("p",null,"Risk desk: "+b.weakness));
+      if(b.weakness)c.append(el("p",null,"Rook: "+b.weakness));
       if(b.adjust)c.append(el("p",null,"Adjust: "+b.adjust));
       return c}));
   }else if(busy){$("board").replaceChildren(el("p","empty","Nothing on the board yet — the desks are still working."))}
   const set=(id,t)=>{$(id).textContent=t||"—";$(id).classList.toggle("empty",!t)};
   set("port",[s.market_context,s.portfolio_note].filter(Boolean).join(" "));set("brief",s.briefing);
+  onState(s);
 }
 async function poll(){
   try{render(await (await fetch("/state")).json())}

@@ -37,12 +37,20 @@ Watch the three agents work in your browser:
 python -m trading_desk --office
 ```
 
-Open http://127.0.0.1:8765. Each agent has a desk: the monitor shows what it is writing as
-it writes, the speech bubble shows a summary of its reasoning, and the news desk lists each
-web search it makes. Work passes left to right; finished signals land on the board below with
-the risk desk's verdict stamped on them. **Run now** starts another run (each run is three
-paid model calls); add `--every 30` to also re-run on a timer. The page is served on
-localhost only.
+Open http://127.0.0.1:8765. It is a room with three characters:
+
+- **Nia** (news desk, headset), **Sol** (signal desk, cap) and **Rook** (risk desk, glasses).
+- Whoever is working sits at their desk typing, with a bubble saying what they are doing
+  (thinking, searching the web, writing).
+- When a desk finishes, its character carries the paper to the next desk; Rook pins the
+  final verdicts on the signal board on the wall. Between jobs they wander to the coffee
+  machine or the window.
+- Below the room, each desk has a panel with the live output as it is written, a summary of
+  the agent's reasoning, and the news desk's web searches. Finished signals land on the board
+  at the bottom with Rook's verdict stamped on them.
+
+**Run now** starts another run (each run is three paid model calls); add `--every 30` to
+also re-run on a timer. The page is served on localhost only.
 
 To see the office without an API key, market data or any cost, play a scripted fake run:
 
@@ -55,6 +63,7 @@ python -m trading_desk --office --demo
 | `--symbols MGC MNQ` | Subset of instruments |
 | `--account`, `--risk-pct` | Account size and max % risked per trade, used for position sizing |
 | `--office [PORT]` | Open the office page (default port 8765) |
+| `--vault PATH` | Obsidian vault to file reports, the signals log and the Office note in |
 | `--demo` | Scripted fake run, clearly labelled; nothing real is fetched or called |
 | `--every 30` | Re-run every 30 minutes |
 | `--webhook URL` | Push each report to a Discord-style webhook |
@@ -62,6 +71,23 @@ python -m trading_desk --office --demo
 
 `TRADING_DESK_MODEL` (default `claude-opus-5-5`) and `TRADING_DESK_EFFORT` (default `high`)
 override the model settings. Each run is three model calls, one of them with web search.
+
+## Obsidian
+
+Point it at your vault folder and it files its work there, under `Trading Desk/`:
+
+```bash
+python -m trading_desk --office --vault "/path/to/your/vault"
+```
+
+- **`Office.md`** embeds the live office, so you can watch the room inside Obsidian while the
+  program is running. Open it in reading view.
+- **`Reports/`** gets one note per run, with properties (date, each market's direction and
+  verdict) you can query.
+- **`Signals log.md`** gains one table row per signal per run — a running journal.
+
+Demo runs write only the Office note, never fake reports. Obsidian is a desktop app reading a
+local folder, so this works on the computer where both it and the program run.
 
 ## Things to know
 
