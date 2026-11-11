@@ -197,3 +197,75 @@ def test_rithmic_source(monkeypatch):
     monkeypatch.delenv("RITHMIC_URL")
     with pytest.raises(RuntimeError, match="RITHMIC_URL"):
         rithmic.fetcher([INSTRUMENTS["MNQ"]])
+
+
+def test_claude_code_backend(monkeypatch):
+    """A headless Claude Code run is translated into the stream the agents expect."""
+    from trading_desk import claude_code
+
+    def ev(e):
+        return json.dumps({"type": "stream_event", "event": e})
+
+    def block(kind, name, deltas):
+        cb = {"type": kind, **({"name": name} if name else {})}
+        dt = "text_delta" if kind == "text" else "input_json_delta"
+        key = "text" if kind == "text" else "partial_json"
+        return [ev({"type": "content_block_start", "content_block": cb}),
+                *[ev({"type": "content_block_delta", "delta": {"type": dt, key: d}}) for d in deltas],
+                ev({"type": "content_block_stop"})]
+
+    review = {"portfolio_note": "ok", "reviews": []}
+    scripts = {
+        "news": [json.dumps({"type": "system", "subtype": "init"}), "not json",
+                 *block("tool_use", "WebSearch", ['{"query": "CPI ', 'date", "mode": "extended"}']),
+                 *block("text", None, ["CPI is ", "Thursday."]),
+                 json.dumps({"type": "result", "is_error": False, "result": "CPI is Thursday."})],
+        "risk": [*block("tool_use", "StructuredOutput", ['{"portfolio_note"', ': "ok", "reviews": []}']),
+                 json.dumps({"type": "result", "is_error": False, "result": "", "structured_output": review})],
+        "fail": [json.dumps({"type": "result", "is_error": True, "result": "Not logged in"})],
+    }
+    launched = []
+
+    class FakePopen:
+        def __init__(self, cmd, **kw):
+            launched.append(cmd)
+            sys_prompt = cmd[cmd.index("--system-prompt") + 1]
+            self.stdout = iter(l + "\n" for l in scripts[sys_prompt])
+            self.stdin = SimpleNamespace(write=lambda p: launched.append(p), close=lambda: None)
+            self.stderr = SimpleNamespace(read=lambda: "")
+
+        def poll(self):
+            return 0
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(claude_code.subprocess, "Popen", FakePopen)
+    monkeypatch.delenv("TRADING_DESK_MODEL", raising=False)
+    monkeypatch.delenv("TRADING_DESK_EFFORT", raising=False)
+    client = claude_code.ClaudeCodeClient()
+    seen = []
+    emit = lambda kind, text: seen.append((kind, text))
+
+    monkeypatch.setattr(agents, "NEWS_SYSTEM", "news")
+    assert agents.news_agent(client, "now", None, emit) == "CPI is Thursday."
+    cmd = launched[0]
+    assert cmd[:2] == ["claude", "-p"] and cmd[cmd.index("--tools") + 1] == "WebSearch" and "--model" not in cmd
+    assert "Current time: now" in launched[1]  # prompt goes in on stdin
+    assert ("log", "searched: CPI date") in seen and ("screen", "CPI is ") in seen
+
+    seen.clear()
+    out = agents._structured(client, emit, "risk", "review these", agents.ReviewSet)
+    assert out.portfolio_note == "ok"
+    cmd = launched[2]
+    assert cmd[cmd.index("--tools") + 1] == "" and "reviews" in cmd[cmd.index("--json-schema") + 1]
+    assert ("screen", '{"portfolio_note"') in seen  # structured output shows on the monitor as it is written
+
+    with pytest.raises(RuntimeError, match="Not logged in"):
+        agents._structured(client, emit, "fail", "x", agents.ReviewSet)
+
+    def missing(*a, **k):
+        raise FileNotFoundError
+    monkeypatch.setattr(claude_code.subprocess, "Popen", missing)
+    with pytest.raises(RuntimeError, match="Claude Code was not found"):
+        agents._structured(client, emit, "risk", "x", agents.ReviewSet)

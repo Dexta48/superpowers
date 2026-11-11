@@ -62,6 +62,7 @@ python -m trading_desk --office --demo
 |---|---|
 | `--symbols MGC MNQ` | Subset of instruments |
 | `--account`, `--risk-pct` | Account size and max % risked per trade, used for position sizing |
+| `--backend claude-code` | Run the agents on your Claude subscription through Claude Code (default `api`) |
 | `--source rithmic` | Real-time futures data through your Rithmic login (default `yahoo`, delayed) |
 | `--office [PORT]` | Open the office page (default port 8765) |
 | `--vault PATH` | Obsidian vault to file reports, the signals log and the Office note in |
@@ -72,6 +73,22 @@ python -m trading_desk --office --demo
 
 `TRADING_DESK_MODEL` (default `claude-opus-5-5`) and `TRADING_DESK_EFFORT` (default `high`)
 override the model settings. Each run is three model calls, one of them with web search.
+
+## Run on your Claude subscription (no API key)
+
+If you have Claude Pro or Max, the agents can run through Claude Code instead of the paid API:
+
+1. Install Claude Code from https://claude.com/claude-code.
+2. Run `claude` once in a terminal and log in with your Claude account, then exit.
+3. Add `--backend claude-code` to any command:
+
+```bash
+python -m trading_desk --office --backend claude-code
+```
+
+No `ANTHROPIC_API_KEY` is needed. Each run draws on your plan's usage limits rather than
+being billed, so a frequent `--every` timer can use up your allowance. The agents use your
+Claude Code default model; set `TRADING_DESK_MODEL` to pick one your plan includes.
 
 ## Real-time data (Rithmic / TradeSea)
 

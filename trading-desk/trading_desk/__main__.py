@@ -114,6 +114,9 @@ def main() -> None:
     p.add_argument("--symbols", nargs="+", default=list(INSTRUMENTS), choices=list(INSTRUMENTS))
     p.add_argument("--account", type=float, default=10_000, help="account size in USD (default 10000)")
     p.add_argument("--risk-pct", type=float, default=1.0, help="max %% of account risked per trade (default 1)")
+    p.add_argument("--backend", choices=["api", "claude-code"], default="api",
+                   help="what runs the agents: api (ANTHROPIC_API_KEY, billed per run) or claude-code "
+                        "(your Claude subscription, through Claude Code installed on this computer)")
     p.add_argument("--source", choices=["yahoo", "rithmic"], default="yahoo",
                    help="price data: yahoo (free, ~10-15 min delayed) or rithmic (real time; uses your "
                         "TradeSea/prop-firm Rithmic login from RITHMIC_* environment variables)")
@@ -137,6 +140,10 @@ def main() -> None:
         client = demo.FakeClient(delay=0.12 if args.office else 0)
         data.fetch = demo.bars
         news.upcoming_usd_events = lambda: None
+    elif args.backend == "claude-code":
+        from .claude_code import ClaudeCodeClient
+
+        client = ClaudeCodeClient()
     elif not args.data_only:
         import anthropic
 
