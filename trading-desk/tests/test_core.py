@@ -1,6 +1,8 @@
 """Offline tests: indicator/risk maths on synthetic bars, and the full pipeline
 with the model client stubbed."""
 import json
+import threading
+import time
 import urllib.error
 import urllib.request
 from types import SimpleNamespace
@@ -285,3 +287,14 @@ def test_office_moves_off_a_busy_port():
             second.shutdown()
     finally:
         first.shutdown()
+
+
+def test_wait_for_next_returns_on_button_or_timer():
+    office = Office()
+    t0 = time.time()
+    office.wait_for_next(0.01)  # 0.6 s timer
+    assert 0.4 < time.time() - t0 < 3
+    threading.Timer(0.2, office.run_requested.set).start()
+    t0 = time.time()
+    office.wait_for_next(None)  # no timer: only the Run button ends the wait
+    assert time.time() - t0 < 3

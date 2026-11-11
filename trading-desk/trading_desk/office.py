@@ -79,7 +79,11 @@ class Office:
         """Block until the Run button is pressed or the interval elapses."""
         self.set(phase="idle", next_run_at=time.time() + minutes * 60 if minutes else None)
         self.run_requested.clear()
-        self.run_requested.wait(minutes * 60 if minutes else None)
+        deadline = time.time() + minutes * 60 if minutes else None
+        # Short waits in a loop: on Windows one long wait cannot be interrupted by Ctrl-C.
+        while not self.run_requested.wait(0.5):
+            if deadline and time.time() >= deadline:
+                return
 
     def serve(self, port: int) -> ThreadingHTTPServer:
         """Serve on `port`, or on a free port if another program already has it."""
