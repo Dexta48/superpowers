@@ -5,6 +5,7 @@ import argparse
 import json
 import sys
 import time
+import webbrowser
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -122,6 +123,7 @@ def main() -> None:
                         "TradeSea/prop-firm Rithmic login from RITHMIC_* environment variables)")
     p.add_argument("--office", nargs="?", type=int, const=8765, metavar="PORT",
                    help="open the office: a local page where you watch the agents work (default port 8765)")
+    p.add_argument("--no-browser", action="store_true", help="do not open the office in your browser automatically")
     p.add_argument("--demo", action="store_true",
                    help="scripted fake run: no API key, no market data, no cost — to try the office")
     p.add_argument("--vault", metavar="PATH",
@@ -151,8 +153,14 @@ def main() -> None:
 
     office = Office(demo=args.demo)
     if args.office:
-        office.serve(args.office)
-        print(f"office open at http://127.0.0.1:{args.office}  (Ctrl-C to close)", file=sys.stderr)
+        wanted = args.office
+        args.office = office.serve(wanted).server_address[1]
+        url = f"http://127.0.0.1:{args.office}"
+        if args.office != wanted:
+            print(f"port {wanted} is used by another program on this computer, so the office moved", file=sys.stderr)
+        print(f"office open at {url}  (Ctrl-C to close)", file=sys.stderr)
+        if not args.no_browser:
+            webbrowser.open(url)
 
     if args.vault:
         note = obsidian.write_office_note(args.vault, args.office)

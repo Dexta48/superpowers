@@ -37,7 +37,9 @@ Watch the three agents work in your browser:
 python -m trading_desk --office
 ```
 
-Open http://127.0.0.1:8765. It is a room with three characters:
+Your browser opens the office automatically (normally http://127.0.0.1:8765; if another
+program on your computer already uses that port, the office picks a free one and prints the
+link). It is a room with three characters:
 
 - **Nia** (news desk, headset), **Sol** (signal desk, cap) and **Rook** (risk desk, glasses).
 - Whoever is working sits at their desk typing, with a bubble saying what they are doing

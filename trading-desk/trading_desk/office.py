@@ -5,6 +5,7 @@ it behind a localhost-only HTTP server that the page polls."""
 from __future__ import annotations
 
 import json
+import socket
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -81,6 +82,7 @@ class Office:
         self.run_requested.wait(minutes * 60 if minutes else None)
 
     def serve(self, port: int) -> ThreadingHTTPServer:
+        """Serve on `port`, or on a free port if another program already has it."""
         office = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -113,6 +115,21 @@ class Office:
             def log_message(self, *a):
                 pass
 
-        server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        class Server(ThreadingHTTPServer):
+            # Off, because on Windows address reuse lets two programs share a port
+            # silently and the browser reaches whichever was there first.
+            allow_reuse_address = False
+
+        def taken(p: int) -> bool:
+            with socket.socket() as probe:
+                probe.settimeout(0.5)
+                return probe.connect_ex(("127.0.0.1", p)) == 0
+
+        try:
+            if port and taken(port):
+                raise OSError("port in use")
+            server = Server(("127.0.0.1", port), Handler)
+        except OSError:
+            server = Server(("127.0.0.1", 0), Handler)  # another program has that port: take any free one
         threading.Thread(target=server.serve_forever, daemon=True).start()
         return server

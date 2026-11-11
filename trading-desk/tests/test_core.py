@@ -269,3 +269,19 @@ def test_claude_code_backend(monkeypatch):
     monkeypatch.setattr(claude_code.subprocess, "Popen", missing)
     with pytest.raises(RuntimeError, match="Claude Code was not found"):
         agents._structured(client, emit, "risk", "x", agents.ReviewSet)
+
+
+def test_office_moves_off_a_busy_port():
+    """If another program already answers on the port, the office takes a free one."""
+    first = Office().serve(0)
+    busy = first.server_address[1]
+    try:
+        second = Office().serve(busy)
+        try:
+            port = second.server_address[1]
+            assert port != busy
+            assert "Trading desk" in urllib.request.urlopen(f"http://127.0.0.1:{port}/").read().decode()
+        finally:
+            second.shutdown()
+    finally:
+        first.shutdown()
