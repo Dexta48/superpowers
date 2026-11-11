@@ -11,7 +11,8 @@ FOLDER = "Trading Desk"
 TEAM = """## The team
 
 - **Nia — news desk.** Headset on, always mid-search. Builds the week's event briefing.
-- **Sol — signal desk.** Reads the charts top-down and writes one idea per market, or stays flat.
+- **Kai — chart desk.** Curly hair, eyes on the screens. Reads every chart on every timeframe and marks the levels.
+- **Sol — signal desk.** Takes Kai's read and the news and writes one idea per market, or stays flat.
 - **Rook — risk desk.** Glasses, red pen. Tries to break every signal before it reaches the board."""
 LOG_HEADER = (
     "# Signals log\n\n| Time | Symbol | Direction | Entry | Stop | Targets | R:R | Verdict | Score | Report |\n"

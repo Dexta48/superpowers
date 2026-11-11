@@ -1,4 +1,4 @@
-"""The three agents: news, signal, critic. Each is one Claude call with its
+"""The four agents: news, chart, signal, critic. Each is one Claude call with its
 own system prompt; the pipeline in __main__ wires them together."""
 from __future__ import annotations
 
@@ -31,6 +31,27 @@ class Signal(BaseModel):
 class SignalSet(BaseModel):
     market_context: str
     signals: list[Signal]
+
+
+class ChartRead(BaseModel):
+    symbol: str
+    trend_daily: Literal["up", "down", "sideways"]
+    trend_1h: Literal["up", "down", "sideways"]
+    trend_15m: Literal["up", "down", "sideways"]
+    structure: str  # swing highs/lows, ranges, breaks, where price sits in them
+    momentum: str  # RSI, MACD histogram and what they are doing, per timeframe where it matters
+    volatility: str  # ATR in context: quiet, normal or expanding; typical bar size
+    key_resistance: list[float]  # nearest first
+    key_support: list[float]  # nearest first
+    bias: Literal["bullish", "bearish", "neutral"]
+    bias_strength: Literal["weak", "moderate", "strong"]
+    what_would_change_it: str  # the price action that flips or cancels the bias
+    data_quality: str  # stale, thin or inconsistent data; "fine" if none
+
+
+class ChartBook(BaseModel):
+    cross_market: str  # how the three charts relate: leadership, divergence, confirmation
+    analyses: list[ChartRead]
 
 
 class Review(BaseModel):
@@ -68,8 +89,35 @@ opening a new position is a coin-flip on a number.
 Output markdown, most imminent event first. No trade recommendations — that is another \
 desk's job."""
 
+CHART_SYSTEM = """You are the chart desk: the technical analyst for MGC, MNQ and SPX. Your \
+only job is to read the charts thoroughly and say what they show. You do not propose trades \
+and you ignore news; other desks do that with your read in hand.
+
+The chart data is JSON per instrument: for the daily, 1-hour and 15-minute timeframes you \
+get the last price, EMAs (20/50/200), RSI, ATR, MACD histogram, the prior 20-bar range, the \
+window high and low, daily pivots, the previous day's high/low/close, and the most recent \
+bars. Read every timeframe of every instrument, top-down.
+
+For each instrument report: the trend on each timeframe and whether they agree; the market \
+structure (higher highs and lows or the reverse, ranges, recent breaks or failed breaks, \
+where price sits inside the current range); momentum and whether it confirms or diverges \
+from price; volatility relative to recent bars; and the support and resistance levels that \
+matter, nearest first, each one a number that is actually in the data (a swing, a pivot, an \
+EMA, a range edge). Then give one overall bias with its strength, and the specific price \
+action that would flip or cancel it.
+
+Be exact and literal. Quote readings from the data and do not describe patterns you cannot \
+support from the bars given. When timeframes conflict, say so and call the bias neutral or \
+weak instead of forcing a view. Check `last_bar_time` against the current time and report \
+stale, thin or inconsistent data in `data_quality`. In `cross_market`, compare the three \
+charts: which is leading, and whether they confirm or diverge from each other."""
+
 SIGNAL_SYSTEM = """You are the signal desk. You read multi-timeframe chart data for MGC, \
 MNQ and SPX and issue at most one trade idea per instrument.
+
+The chart desk has already analysed every chart; its read comes first in your brief. Start \
+from it, check it against the raw data, and build on it. If you trade against its bias, say \
+why. Constructing the trade (entry, stop, targets) is your job, not theirs.
 
 The chart data is JSON per instrument: for the daily, 1-hour and 15-minute timeframes you \
 get the last price, EMAs, RSI, ATR, MACD histogram, range highs/lows, daily pivots and the \
@@ -93,7 +141,8 @@ CRITIC_SYSTEM = """You are the risk desk. Another analyst has issued trade signa
 MNQ and SPX; your job is to find what is wrong with them before money is at risk. You are \
 independent of that analyst and gain nothing by agreeing.
 
-You get the same chart data, the news briefing, the signals, and a risk sheet computed in \
+You get the same chart data, the chart desk's technical read, the news briefing, the \
+signals, and a risk sheet computed in \
 code (points and dollars at risk per contract, reward-to-risk per target, contracts that \
 fit the account's risk budget, stop distance in ATR multiples, structural problems). Trust \
 the risk sheet's arithmetic; re-derive nothing.
@@ -198,20 +247,27 @@ def _structured(client, emit, system: str, user: str, schema):
     return resp.parsed_output
 
 
-def signal_agent(client, now: str, charts: list[dict], news: str, emit=_quiet) -> SignalSet:
+def chart_agent(client, now: str, charts: list[dict], emit=_quiet) -> ChartBook:
+    user = f"Current time: {now}\n\n## Chart data\n{json.dumps(charts)}"
+    return _structured(client, emit, CHART_SYSTEM, user, ChartBook)
+
+
+def signal_agent(client, now: str, charts: list[dict], news: str, read: ChartBook, emit=_quiet) -> SignalSet:
     user = (
-        f"Current time: {now}\n\n## News briefing\n{news}\n\n"
-        f"## Chart data\n{json.dumps(charts)}"
+        f"Current time: {now}\n\n## Chart desk's read\n{read.model_dump_json(indent=1)}\n\n"
+        f"## News briefing\n{news}\n\n## Chart data\n{json.dumps(charts)}"
     )
     return _structured(client, emit, SIGNAL_SYSTEM, user, SignalSet)
 
 
 def critic_agent(
-    client, now: str, charts: list[dict], news: str, signals: SignalSet, risk: list[dict], emit=_quiet
+    client, now: str, charts: list[dict], news: str, read: ChartBook, signals: SignalSet,
+    risk: list[dict], emit=_quiet,
 ) -> ReviewSet:
     user = (
         f"Current time: {now}\n\n## Signals under review\n{signals.model_dump_json(indent=1)}\n\n"
-        f"## Risk sheet\n{json.dumps(risk, indent=1)}\n\n## News briefing\n{news}\n\n"
+        f"## Risk sheet\n{json.dumps(risk, indent=1)}\n\n"
+        f"## Chart desk's read\n{read.model_dump_json(indent=1)}\n\n## News briefing\n{news}\n\n"
         f"## Chart data\n{json.dumps(charts)}"
     )
     return _structured(client, emit, CRITIC_SYSTEM, user, ReviewSet)

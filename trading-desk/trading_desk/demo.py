@@ -37,6 +37,21 @@ BRIEFING = """**DEMO briefing — invented events, not a real calendar.**
 **No-trade windows:** Thu 08:15–09:00 ET."""
 
 
+def _read(charts):
+    out = []
+    for c in charts:
+        d, h = c["timeframes"]["1d"], c["timeframes"]["1h"]
+        gold = c["symbol"] == "MGC"
+        out.append(dict(
+            symbol=c["symbol"], trend_daily="sideways" if gold else "up", trend_1h="sideways" if gold else "up",
+            trend_15m="up", structure="Demo: higher highs and higher lows on the 1h; price in the top third of the 20-bar range.",
+            momentum=f"Demo: 1h RSI {h['rsi14']}, MACD histogram positive.", volatility=f"Demo: 1h ATR {h['atr14']}, normal.",
+            key_resistance=[d["prior_20bar_high"], d["window_high"]], key_support=[h["ema20"], d["pivots"]["s1"]],
+            bias="neutral" if gold else "bullish", bias_strength="weak" if gold else "moderate",
+            what_would_change_it="Demo: a 1h close below the EMA50.", data_quality="Demo data: scripted, not a real market."))
+    return {"cross_market": "Demo: the two indices are moving together; gold is not confirming.", "analyses": out}
+
+
 def _signals(charts):
     out = []
     for c in charts:
@@ -105,7 +120,7 @@ def _chunks(text, n=14):
 
 
 class FakeClient:
-    """Mimics `client.beta.messages.stream(...)` for the three agents."""
+    """Mimics `client.beta.messages.stream(...)` for the four agents."""
 
     def __init__(self, delay: float = 0.0, pause_first: bool = False):
         self.delay, self.pause_first, self.calls = delay, pause_first, []
@@ -131,7 +146,10 @@ class FakeClient:
             return _Stream(events, final, self.delay)
 
         charts = json.loads(prompt.split("## Chart data\n", 1)[1])
-        if kw["output_format"] is agents.SignalSet:
+        if kw["output_format"] is agents.ChartBook:
+            data = _read(charts)
+            thought = "Daily first: where are the EMAs stacked? Then 1h swings, then the 15m. Mark the levels that are in the data. "
+        elif kw["output_format"] is agents.SignalSet:
             data = _signals(charts)
             thought = "Daily trend first, then 1h structure. Gold is stuck mid-range into CPI, so flat there. "
         else:

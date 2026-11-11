@@ -84,11 +84,16 @@ def run_demo(tmp_path, monkeypatch, **client_kw):
 def test_pipeline_end_to_end(tmp_path, monkeypatch):
     md, client, state = run_demo(tmp_path, monkeypatch, pause_first=True)
 
-    assert len(client.calls) == 4  # paused news turn resumed, then signal, then critic
+    assert len(client.calls) == 5  # paused news turn resumed, then chart, signal, critic
     assert client.calls[1]["messages"][-1]["role"] == "assistant"
-    signal_prompt = client.calls[2]["messages"][0]["content"]
+    chart_prompt = client.calls[2]["messages"][0]["content"]
+    assert client.calls[2]["output_format"] is agents.ChartBook and "News briefing" not in chart_prompt
+    signal_prompt = client.calls[3]["messages"][0]["content"]
     assert "No-trade windows" in signal_prompt and "let me check" not in signal_prompt
-    assert '"risk_usd_per_contract"' in client.calls[3]["messages"][0]["content"]
+    assert "## Chart desk's read" in signal_prompt and '"bias": "bullish"' in signal_prompt
+    critic_prompt = client.calls[4]["messages"][0]["content"]
+    assert '"risk_usd_per_contract"' in critic_prompt and "## Chart desk's read" in critic_prompt
+    assert "## Chart read" in md and "### MNQ — bullish (moderate)" in md
     assert "MNQ — LONG → risk desk: **TAKE (reduced size)** (6/10)" in md
     assert "MGC — FLAT" in md and "SPX — LONG → risk desk: **REJECT**" in md
     assert len(list((tmp_path / "out").iterdir())) == 2
@@ -109,6 +114,9 @@ def test_pipeline_end_to_end(tmp_path, monkeypatch):
         "searched: US economic calendar this week CPI", "searched: Fed speakers this week"]
     assert "CPI time" in state["desks"]["news"]["thought"]
     assert state["desks"]["risk"]["screen"].lstrip().startswith("{")
+    assert list(state["desks"]) == ["news", "chart", "signal", "risk"]
+    assert state["desks"]["chart"]["summary"].startswith("MNQ: bullish (moderate)")
+    assert [a["symbol"] for a in state["chart_read"]] == ["MNQ", "MGC", "SPX"]
     assert [b["symbol"] for b in state["board"]] == ["MNQ", "MGC", "SPX"]
     assert state["board"][0]["verdict"] == "TAKE (reduced size)" and state["board"][0]["rr"]
     assert [t["symbol"] for t in state["tickers"]] == ["MNQ", "MGC", "SPX"]

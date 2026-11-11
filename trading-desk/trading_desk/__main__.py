@@ -1,4 +1,4 @@
-"""python -m trading_desk — run news -> signals -> critic once, or on a loop."""
+"""python -m trading_desk — run news -> charts -> signals -> critic once, or on a loop."""
 from __future__ import annotations
 
 import argparse
@@ -69,9 +69,15 @@ def run_once(args, client, office: Office) -> str:
     office.done("news", "Briefing handed to the signal desk")
     office.set(briefing=briefing)
 
+    print("chart desk...", file=sys.stderr)
+    office.start("chart")
+    read = agents.chart_agent(client, now, charts, office.emitter("chart"))
+    office.done("chart", ", ".join(f"{a.symbol}: {a.bias} ({a.bias_strength})" for a in read.analyses))
+    office.set(chart_read=[a.model_dump() for a in read.analyses], cross_market=read.cross_market)
+
     print("signal desk...", file=sys.stderr)
     office.start("signal")
-    signals = agents.signal_agent(client, now, charts, briefing, office.emitter("signal"))
+    signals = agents.signal_agent(client, now, charts, briefing, read, office.emitter("signal"))
     live = [s for s in signals.signals if s.direction != "flat"]
     office.done("signal", f"{len(live)} live signal(s), {len(signals.signals) - len(live)} flat — sent to risk")
 
@@ -83,12 +89,12 @@ def run_once(args, client, office: Office) -> str:
     ]
     print("risk desk...", file=sys.stderr)
     office.start("risk")
-    reviews = agents.critic_agent(client, now, charts, briefing, signals, sheet, office.emitter("risk"))
+    reviews = agents.critic_agent(client, now, charts, briefing, read, signals, sheet, office.emitter("risk"))
     office.done("risk", ", ".join(f"{r.symbol}: {report.VERDICT[r.verdict]}" for r in reviews.reviews))
     office.set(board=_board(signals, reviews, sheet), market_context=signals.market_context,
                portfolio_note=reviews.portfolio_note, phase="idle")
 
-    md = report.render(now, briefing, signals, reviews, sheet, errors)
+    md = report.render(now, briefing, signals, reviews, sheet, errors, read)
     if args.demo:
         return "> DEMO RUN — scripted output, not real analysis.\n\n" + md
     out = Path(args.out)
@@ -97,7 +103,7 @@ def run_once(args, client, office: Office) -> str:
     (out / f"{stem}.md").write_text(md)
     (out / f"{stem}.json").write_text(
         json.dumps(
-            {"time": now, "news": briefing, "signals": signals.model_dump(),
+            {"time": now, "news": briefing, "chart_read": read.model_dump(), "signals": signals.model_dump(),
              "risk": sheet, "reviews": reviews.model_dump(), "errors": errors},
             indent=1,
         )

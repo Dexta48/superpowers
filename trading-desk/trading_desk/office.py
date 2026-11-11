@@ -1,4 +1,4 @@
-"""The office: a local web page where you watch the three agents work.
+"""The office: a local web page where you watch the four agents work.
 
 `Office` is the shared state the pipeline writes to as it runs; `serve` puts
 it behind a localhost-only HTTP server that the page polls."""
@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 PAGE = Path(__file__).with_name("office.html")
-DESKS = ("news", "signal", "risk")
+DESKS = ("news", "chart", "signal", "risk")
 
 
 def _desk():
@@ -27,6 +27,7 @@ class Office:
             "demo": demo, "run": 0, "phase": "idle", "error": "", "started": "", "next_run_at": None,
             "tickers": [], "desks": {d: _desk() for d in DESKS},
             "board": [], "market_context": "", "portfolio_note": "", "briefing": "",
+            "chart_read": [], "cross_market": "",
         }
 
     def set(self, **kw) -> None:

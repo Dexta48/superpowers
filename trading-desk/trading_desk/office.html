@@ -7,12 +7,12 @@
 <style>
 :root{
   --bg:#f3f0ea; --wall:#e9e3d7; --wall2:#ddd5c5; --floor:#cbbfa9; --floor2:#bfb29a; --card:#fffdf9; --ink:#22201c; --muted:#6f695e;
-  --line:#cfc7b8; --screen:#11161c; --screen-ink:#b9f3c9; --news:#2f6fb3; --signal:#b9770e; --risk:#a23b3b;
+  --line:#cfc7b8; --screen:#11161c; --screen-ink:#b9f3c9; --news:#2f6fb3; --chart:#1f8a7a; --signal:#b9770e; --risk:#a23b3b;
   --up:#1d7a46; --down:#b23a3a; --flat:#6f695e; --desk:#b08d5e; --desk-edge:#8a6c44; --sky:#bfe0f5; --paper:#fffdf6;
 }
 @media (prefers-color-scheme: dark){:root{
   --bg:#15171a; --wall:#262a31; --wall2:#1f2228; --floor:#3a352d; --floor2:#322e27; --card:#1f2329; --ink:#e9e6df; --muted:#9a968c;
-  --line:#343a43; --screen:#0a0d11; --news:#6aa9e9; --signal:#e3a94a; --risk:#e07a7a;
+  --line:#343a43; --screen:#0a0d11; --news:#6aa9e9; --chart:#4cc3b0; --signal:#e3a94a; --risk:#e07a7a;
   --up:#56c98a; --down:#ef7f7f; --flat:#9a968c; --desk:#7a6242; --desk-edge:#5b4830; --sky:#1b2a44; --paper:#e9e6df;
 }}
 *{box-sizing:border-box}
@@ -54,13 +54,13 @@ button:disabled{opacity:.5;cursor:default}
 @media (prefers-reduced-motion: reduce){#room *{animation:none!important}}
 
 /* desk panels */
-.panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px 16px;max-width:1200px;margin:0 auto}
+.panels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;padding:14px 16px;max-width:1200px;margin:0 auto}
 .desk{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .top{padding:7px 10px;display:flex;align-items:center;gap:8px;background:var(--c)}
 .lamp{width:10px;height:10px;border-radius:50%;background:#fff6;flex:none}
 .working .lamp{background:#f2c230;box-shadow:0 0 8px #f2c230}
 .done .lamp{background:#7be0a3} .error .lamp{background:#ff8d8d}
-.plate{font-weight:700;color:#fff;text-shadow:0 1px 1px #0005}
+.plate{font-weight:700;color:#fff;text-shadow:0 1px 1px #0005;white-space:nowrap}
 .doing{margin-left:auto;font-size:12px;color:#fff;text-align:right}
 .thought{font-size:12.5px;font-style:italic;color:var(--muted);padding:6px 10px;height:60px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
 .monitor{background:var(--screen);color:var(--screen-ink);height:150px;padding:8px 10px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
@@ -83,7 +83,8 @@ h2{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute
 pre.brief{white-space:pre-wrap;font:inherit;font-size:14px}
 .empty{color:var(--muted)}
 footer{color:var(--muted);font-size:12px;margin-top:24px}
-@media (max-width:820px){.panels{grid-template-columns:1fr}}
+@media (max-width:1000px){.panels{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.panels{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -94,18 +95,18 @@ footer{color:var(--muted);font-size:12px;margin-top:24px}
 </header>
 <div class="tickers" id="wall" aria-label="Prices"></div>
 
-<svg id="room" viewBox="0 0 1000 440" role="img" aria-label="The office: Nia at the news desk, Sol at the signal desk and Rook at the risk desk">
+<svg id="room" viewBox="0 0 1000 440" role="img" aria-label="The office: Nia at the news desk, Kai at the chart desk, Sol at the signal desk and Rook at the risk desk">
   <rect class="wall" width="1000" height="252"/><rect class="wall2" y="244" width="1000" height="8"/>
   <rect class="floor" y="252" width="1000" height="188"/>
   <g class="floor2"><rect y="300" width="1000" height="2"/><rect y="360" width="1000" height="2"/><rect y="425" width="1000" height="2"/></g>
   <!-- window -->
-  <rect x="585" y="48" width="120" height="120" rx="4" class="wood2"/><rect x="591" y="54" width="108" height="108" fill="var(--sky)"/>
-  <rect x="643" y="54" width="4" height="108" class="wood2"/><rect x="591" y="106" width="108" height="4" class="wood2"/>
+  <g transform="translate(-125 0)"><rect x="585" y="48" width="120" height="120" rx="4" class="wood2"/><rect x="591" y="54" width="108" height="108" fill="var(--sky)"/>
+  <rect x="643" y="54" width="4" height="108" class="wood2"/><rect x="591" y="106" width="108" height="4" class="wood2"/></g>
   <!-- coffee corner -->
-  <rect x="28" y="252" width="150" height="50" rx="3" class="wood"/><rect x="28" y="252" width="150" height="7" class="wood2"/>
-  <rect x="52" y="196" width="44" height="56" rx="5" fill="#3a414b"/><rect x="60" y="204" width="28" height="14" rx="2" fill="#9db4c8"/>
-  <rect x="66" y="232" width="16" height="16" rx="2" fill="#eee"/><circle cx="88" cy="226" r="3" fill="#e2574c"/>
-  <text x="74" y="186" text-anchor="middle" class="bdh">COFFEE</text>
+  <rect x="14" y="252" width="120" height="50" rx="3" class="wood"/><rect x="14" y="252" width="120" height="7" class="wood2"/>
+  <rect x="30" y="196" width="44" height="56" rx="5" fill="#3a414b"/><rect x="38" y="204" width="28" height="14" rx="2" fill="#9db4c8"/>
+  <rect x="44" y="232" width="16" height="16" rx="2" fill="#eee"/><circle cx="66" cy="226" r="3" fill="#e2574c"/>
+  <text x="52" y="186" text-anchor="middle" class="bdh">COFFEE</text>
   <!-- plant -->
   <rect x="948" y="262" width="30" height="34" rx="4" fill="#a8623f"/>
   <g fill="#3f8f5a"><ellipse cx="963" cy="240" rx="9" ry="26"/><ellipse cx="948" cy="248" rx="8" ry="20" transform="rotate(-25 948 248)"/><ellipse cx="978" cy="248" rx="8" ry="20" transform="rotate(25 978 248)"/></g>
@@ -124,6 +125,8 @@ footer{color:var(--muted);font-size:12px;margin-top:24px}
   <h2>Signal board</h2>
   <div class="board" id="board"><p class="empty">Nothing on the board yet — the desks are still working.</p></div>
   <h2>Combined exposure</h2><p class="note empty" id="port">—</p>
+  <h2>Kai's chart read</h2>
+  <div class="board" id="read"><p class="empty">No chart read yet.</p></div>
   <h2>News briefing</h2><pre class="brief empty" id="brief">—</pre>
   <footer>Analysis generated by an AI model from delayed data. Not financial advice. This page only talks to the program running on your own machine.</footer>
 </main>
@@ -136,16 +139,21 @@ const SEAT_Y=345, AISLE_Y=415, SPEED=120;
 const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // id, name, role, colour, desk centre x, idle text, skin, look
+// `to` is the desk each one hands finished work to (Rook pins his on the board).
 const TEAM=[
- {id:"news",name:"Nia",role:"News desk",color:"var(--news)",cx:270,idle:"waiting for the next run",skin:"#8d5b3f",look:"nia"},
- {id:"signal",name:"Sol",role:"Signal desk",color:"var(--signal)",cx:520,idle:"waiting for the news briefing",skin:"#f0c9a0",look:"sol"},
- {id:"risk",name:"Rook",role:"Risk desk",color:"var(--risk)",cx:770,idle:"waiting for signals to review",skin:"#d9a877",look:"rook"},
+ {id:"news",name:"Nia",role:"News desk",color:"var(--news)",cx:225,to:"signal",idle:"waiting",skin:"#8d5b3f",look:"nia"},
+ {id:"chart",name:"Kai",role:"Chart desk",color:"var(--chart)",cx:410,to:"signal",idle:"waiting",skin:"#c68863",look:"kai"},
+ {id:"signal",name:"Sol",role:"Signal desk",color:"var(--signal)",cx:595,to:"risk",idle:"waiting",skin:"#f0c9a0",look:"sol"},
+ {id:"risk",name:"Rook",role:"Risk desk",color:"var(--risk)",cx:780,to:null,idle:"waiting",skin:"#d9a877",look:"rook"},
 ];
-const SPOTS={coffee:{x:130,y:SEAT_Y},window:{x:645,y:SEAT_Y},board:{x:890,y:SEAT_Y}};
+const HALF=65, STEP=92;   // desk half-width; how far left of a desk the walkway into its seat is
+const SPOTS={coffee:{x:100,y:SEAT_Y},window:{x:520,y:SEAT_Y},board:{x:915,y:SEAT_Y}};
 const LOOKS={
  nia:`<circle cx="0" cy="-101" r="6" fill="#2a1d18"/><path d="M-13.5 -84a13.5 13.5 0 0 1 27 0q-13 -9 -27 0z" fill="#2a1d18"/>
       <path d="M-14 -86a14 14 0 0 1 28 0" fill="none" stroke="#444" stroke-width="2.5"/><rect x="-17" y="-89" width="5" height="9" rx="2" fill="#444"/>
       <path d="M-14 -81q0 8 8 8" fill="none" stroke="#444" stroke-width="1.5"/>`,
+ kai:`<g fill="#1d1a17"><circle cx="-9" cy="-93" r="6"/><circle cx="-1" cy="-97" r="6.5"/><circle cx="8" cy="-94" r="6"/><circle cx="-12.5" cy="-86" r="4.5"/><circle cx="12.5" cy="-87" r="4.5"/></g>
+      <rect x="-13" y="-58" width="9" height="11" rx="1.5" fill="#fff" opacity=".9"/><path d="M-11 -50l2.5 -4 2 2 2.5 -4" fill="none" stroke="#1f8a7a" stroke-width="1.2"/>`,
  sol:`<path d="M-13.5 -86a13.5 13.5 0 0 1 27 0z" fill="#d18a12"/><rect x="2" y="-88" width="19" height="4" rx="2" fill="#a86c08"/>`,
  rook:`<path d="M-13.5 -85a13.5 13.5 0 0 1 27 0q-6 -5 -13 -5t-14 5z" fill="#8a8a8a"/>
       <g fill="none" stroke="#222" stroke-width="1.6"><circle cx="-5" cy="-84" r="4.2"/><circle cx="5" cy="-84" r="4.2"/><path d="M-0.8 -84h1.6"/></g>
@@ -155,11 +163,11 @@ const ui={}, chars={};
 for(const t of TEAM){
   // desk furniture
   const d=svg("g");
-  d.append(svg("rect",{x:t.cx-85,y:300,width:170,height:13,rx:3,class:"wood2"}),
-           svg("rect",{x:t.cx-80,y:313,width:160,height:54,class:"wood"}),
-           svg("rect",{x:t.cx-80,y:313,width:160,height:54,fill:t.color,opacity:".28"}),
-           svg("text",{x:t.cx,y:346,"text-anchor":"middle","font-size":"13","font-weight":"700",fill:"#fff"},t.role.toUpperCase()));
-  const lap=svg("rect",{x:t.cx+34,y:284,width:30,height:17,rx:2,class:"lap"});d.append(lap);
+  d.append(svg("rect",{x:t.cx-HALF,y:300,width:HALF*2,height:13,rx:3,class:"wood2"}),
+           svg("rect",{x:t.cx-HALF+5,y:313,width:HALF*2-10,height:54,class:"wood"}),
+           svg("rect",{x:t.cx-HALF+5,y:313,width:HALF*2-10,height:54,fill:t.color,opacity:".28"}),
+           svg("text",{x:t.cx,y:346,"text-anchor":"middle","font-size":"12","font-weight":"700",fill:"#fff"},t.role.toUpperCase()));
+  const lap=svg("rect",{x:t.cx+24,y:284,width:30,height:17,rx:2,class:"lap"});d.append(lap);
   $("desks").append(d);
   // character (origin at the feet)
   const g=svg("g",{class:"char"});
@@ -185,8 +193,8 @@ const atSeat=c=>c.x===c.t.cx&&c.y===SEAT_Y;
 // Walk via the aisle so nobody cuts through a desk.
 function route(c,to,then){
   const pts=[];
-  if(c.y<AISLE_Y){ if(c.x===c.t.cx) pts.push({x:c.t.cx-110,y:c.y}); pts.push({x:pts.length?pts[0].x:c.x,y:AISLE_Y}); }
-  if(to.seat){ pts.push({x:to.x-110,y:AISLE_Y},{x:to.x-110,y:SEAT_Y},{x:to.x,y:SEAT_Y}); }
+  if(c.y<AISLE_Y){ if(c.x===c.t.cx) pts.push({x:c.t.cx-STEP,y:c.y}); pts.push({x:pts.length?pts[0].x:c.x,y:AISLE_Y}); }
+  if(to.seat){ pts.push({x:to.x-STEP,y:AISLE_Y},{x:to.x-STEP,y:SEAT_Y},{x:to.x,y:SEAT_Y}); }
   else{ pts.push({x:to.x,y:AISLE_Y}); if(to.y<AISLE_Y) pts.push({x:to.x,y:to.y}); }
   pts[pts.length-1].then=then; c.path=pts;
   if(still){ const last=pts[pts.length-1]; c.x=last.x; c.y=last.y; c.path=[]; if(then)then(); }
@@ -211,13 +219,13 @@ function pins(){
 function onState(s){
   const first=latest===null, newRun=!first&&s.run!==latest.run; latest=s;
   if(first&&s.phase==="idle") pinnedRun=s.run;       // page opened after a finished run
-  for(const [i,t] of TEAM.entries()){
+  for(const t of TEAM){
     const c=chars[t.id], st=s.desks[t.id].status, was=c.status; c.status=st;
     if(newRun){ c.carry=false; goHome(c); }
     if(st==="working"&&was!=="working") goHome(c);
     if(st==="done"&&was==="working"){             // hand the work on
       c.carry=true;
-      const next=TEAM[i+1];
+      const next=TEAM.find(o=>o.id===t.to);
       const drop=()=>{ c.carry=false; if(!next){ pinnedRun=latest.run; pins(); } c.wanderAt=performance.now()+1500; goHome(c); };
       route(c, next?{x:next.cx,y:AISLE_Y}:SPOTS.board, drop);
     }
@@ -256,7 +264,7 @@ function render(s){
   $("demo").hidden=!s.demo;
   const busy=s.phase!=="idle";
   $("run").disabled=busy;
-  const who={news:"Nia is on the news",signal:"Sol is reading the charts",risk:"Rook is reviewing the signals",data:"loading charts"};
+  const who={news:"Nia is on the news",chart:"Kai is reading the charts",signal:"Sol is building the signals",risk:"Rook is reviewing the signals",data:"loading charts"};
   let st=busy?`Run ${s.run} in progress — ${who[s.phase]||s.phase}`:s.run?`Run ${s.run} finished · started ${s.started}`:"Idle";
   if(!busy&&s.next_run_at)st+=` · next run ${new Date(s.next_run_at*1000).toLocaleTimeString()}`;
   $("status").textContent=st;
@@ -291,8 +299,20 @@ function render(s){
       if(b.adjust)c.append(el("p",null,"Adjust: "+b.adjust));
       return c}));
   }else if(busy){$("board").replaceChildren(el("p","empty","Nothing on the board yet — the desks are still working."))}
+  if(s.chart_read.length){
+    $("read").replaceChildren(...s.chart_read.map(a=>{
+      const c=el("div","sig");
+      c.style.setProperty("--d",a.bias==="bullish"?"var(--up)":a.bias==="bearish"?"var(--down)":"var(--flat)");
+      const h=el("h3");h.append(el("span",null,a.symbol),el("span","dir",`${a.bias.toUpperCase()} · ${a.bias_strength}`));c.append(h);
+      c.append(el("p",null,`Trend: daily ${a.trend_daily} · 1h ${a.trend_1h} · 15m ${a.trend_15m}`));
+      c.append(el("p","lv",`Resistance ${a.key_resistance.map(fmt).join(", ")||"—"}`));
+      c.append(el("p","lv",`Support ${a.key_support.map(fmt).join(", ")||"—"}`));
+      c.append(el("p",null,a.structure));
+      c.append(el("p",null,"Changes the view: "+a.what_would_change_it));
+      return c}));
+  }else if(busy){$("read").replaceChildren(el("p","empty","No chart read yet."))}
   const set=(id,t)=>{$(id).textContent=t||"—";$(id).classList.toggle("empty",!t)};
-  set("port",[s.market_context,s.portfolio_note].filter(Boolean).join(" "));set("brief",s.briefing);
+  set("port",[s.cross_market,s.market_context,s.portfolio_note].filter(Boolean).join(" "));set("brief",s.briefing);
   onState(s);
 }
 async function poll(){

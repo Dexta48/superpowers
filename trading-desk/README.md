@@ -1,13 +1,14 @@
 # Trading desk
 
-Three Claude agents that analyse **MGC** (micro gold), **MNQ** (micro Nasdaq-100) and
+Four Claude agents that analyse **MGC** (micro gold), **MNQ** (micro Nasdaq-100) and
 **SPX** (S&P 500) and argue with each other before you see a signal.
 
 | Agent | Job | Output |
 |---|---|---|
-| **News desk** | Searches the web for scheduled, market-moving events in the next 7 days (CPI, NFP, FOMC, earnings, expiries) and anything that broke in the last 24h | Briefing with dates/times in ET and "no-trade windows" |
-| **Signal desk** | Reads daily / 1h / 15m chart data (EMAs, RSI, ATR, MACD, pivots, range levels, recent bars) plus the briefing | One idea per instrument: long / short / **flat**, entry, stop, targets, invalidation |
-| **Risk desk** | Independently attacks each signal using the same data and a risk sheet computed in code | Verdict (take / reduced size / wait / reject), score, weaknesses, combined-exposure note |
+| **News desk** (Nia) | Searches the web for scheduled, market-moving events in the next 7 days (CPI, NFP, FOMC, earnings, expiries) and anything that broke in the last 24h | Briefing with dates/times in ET and "no-trade windows" |
+| **Chart desk** (Kai) | Pure technical analysis of every chart on the daily, 1h and 15m: trend, structure, momentum, volatility, support and resistance. No news, no trades | A read per market with levels, a bias and what would change it |
+| **Signal desk** (Sol) | Takes Kai's read, the raw chart data and the briefing and builds the trades | One idea per instrument: long / short / **flat**, entry, stop, targets, invalidation |
+| **Risk desk** (Rook) | Independently attacks each signal using the same data, Kai's read and a risk sheet computed in code | Verdict (take / reduced size / wait / reject), score, weaknesses, combined-exposure note |
 
 The risk arithmetic (points and dollars at risk per contract, reward-to-risk, how many
 contracts fit your risk budget, stop distance in ATR multiples) is done in Python, not by
@@ -31,7 +32,7 @@ Each run prints a markdown report and saves it with the raw JSON under `reports/
 
 ## The office
 
-Watch the three agents work in your browser:
+Watch the four agents work in your browser:
 
 ```bash
 python -m trading_desk --office
@@ -39,19 +40,21 @@ python -m trading_desk --office
 
 Your browser opens the office automatically (normally http://127.0.0.1:47800; if another
 program on your computer already uses that port, the office picks a free one and prints the
-link). It is a room with three characters:
+link). It is a room with four characters:
 
-- **Nia** (news desk, headset), **Sol** (signal desk, cap) and **Rook** (risk desk, glasses).
+- **Nia** (news desk, headset), **Kai** (chart desk, curly hair), **Sol** (signal desk, cap)
+  and **Rook** (risk desk, glasses).
 - Whoever is working sits at their desk typing, with a bubble saying what they are doing
   (thinking, searching the web, writing).
-- When a desk finishes, its character carries the paper to the next desk; Rook pins the
+- When a desk finishes, its character carries the paper on: Nia and Kai to Sol, Sol to
+  Rook; Rook pins the
   final verdicts on the signal board on the wall. Between jobs they wander to the coffee
   machine or the window.
 - Below the room, each desk has a panel with the live output as it is written, a summary of
   the agent's reasoning, and the news desk's web searches. Finished signals land on the board
   at the bottom with Rook's verdict stamped on them.
 
-**Run now** starts another run (each run is three paid model calls); add `--every 30` to
+**Run now** starts another run (each run is four paid model calls); add `--every 30` to
 also re-run on a timer. The page is served on localhost only.
 
 To see the office without an API key, market data or any cost, play a scripted fake run:
@@ -74,7 +77,7 @@ python -m trading_desk --office --demo
 | `--data-only` | Print the chart data and calendar feed as JSON without calling the model |
 
 `TRADING_DESK_MODEL` (default `claude-opus-5-5`) and `TRADING_DESK_EFFORT` (default `high`)
-override the model settings. Each run is three model calls, one of them with web search.
+override the model settings. Each run is four model calls, one of them with web search.
 
 ## Run on your Claude subscription (no API key)
 
