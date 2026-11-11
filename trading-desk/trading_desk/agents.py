@@ -155,6 +155,10 @@ scheduled event sit between entry and target? Is the entry chasing an extended m
 `max_contracts_within_budget` come out at zero, meaning the trade cannot be taken at this \
 account size at all? What would the opposite trade's best argument be?
 
+Sometimes you also get a second opinion written by a different AI model. Treat it as one \
+more analyst: weigh each objection on its merits against the data, say where it disagrees \
+with the signal desk and who is right, and do not defer to it.
+
 Verdicts: `take`, `take_reduced_size`, `wait_for_confirmation` (say exactly what \
 confirmation), or `reject`. Be specific and blunt, and do not soften a reject. For a flat \
 call, judge whether standing aside is right or whether a clear setup was missed. In \
@@ -262,11 +266,14 @@ def signal_agent(client, now: str, charts: list[dict], news: str, read: ChartBoo
 
 def critic_agent(
     client, now: str, charts: list[dict], news: str, read: ChartBook, signals: SignalSet,
-    risk: list[dict], emit=_quiet,
+    risk: list[dict], emit=_quiet, second_opinion: str = "",
 ) -> ReviewSet:
+    other = (
+        f"## Second opinion from a different AI model (Grok)\n{second_opinion}\n\n" if second_opinion else ""
+    )
     user = (
         f"Current time: {now}\n\n## Signals under review\n{signals.model_dump_json(indent=1)}\n\n"
-        f"## Risk sheet\n{json.dumps(risk, indent=1)}\n\n"
+        f"## Risk sheet\n{json.dumps(risk, indent=1)}\n\n{other}"
         f"## Chart desk's read\n{read.model_dump_json(indent=1)}\n\n## News briefing\n{news}\n\n"
         f"## Chart data\n{json.dumps(charts)}"
     )

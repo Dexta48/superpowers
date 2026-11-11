@@ -70,14 +70,14 @@ def test_risk_flags_malformed_and_unaffordable():
     assert risk.assess({"direction": "flat"}, INSTRUMENTS["MGC"], chart("MGC"), 1, 1)["direction"] == "flat"
 
 
-def run_demo(tmp_path, monkeypatch, **client_kw):
+def run_demo(tmp_path, monkeypatch, grok=False, **client_kw):
     monkeypatch.setattr(data, "fetch", demo.bars)
     monkeypatch.setattr(cli.news, "upcoming_usd_events", lambda: [{"title": "CPI"}])
     client = demo.FakeClient(**client_kw)
     args = SimpleNamespace(symbols=["MNQ", "MGC", "SPX"], account=10_000, risk_pct=1.0,
                            data_only=False, demo=False, out=str(tmp_path / 'out'), webhook=None,
-                           vault=str(tmp_path / 'vault'), office=8765, source='yahoo')
-    office = Office()
+                           vault=str(tmp_path / 'vault'), office=8765, source='yahoo', grok=grok)
+    office = Office(desks=("news", "chart", "signal", "grok", "risk") if grok else cli.DESKS)
     return cli.run_once(args, client, office), client, json.loads(office.json())
 
 
@@ -306,3 +306,52 @@ def test_wait_for_next_returns_on_button_or_timer():
     t0 = time.time()
     office.wait_for_next(None)  # no timer: only the Run button ends the wait
     assert time.time() - t0 < 3
+
+
+def test_grok_second_opinion(tmp_path, monkeypatch):
+    """Grok's answer reaches the risk desk, the report and the office."""
+    from trading_desk import grok
+
+    sent = {}
+
+    def fake_run(cmd, **kw):
+        sent["cmd"], sent["cwd"] = cmd, kw["cwd"]
+        return SimpleNamespace(returncode=0, stdout="\x1b[1mMNQ: disagree, entry will not fill.\x1b[0m\n", stderr="")
+
+    monkeypatch.setattr(grok.shutil, "which", lambda name: "/bin/" + name)
+    monkeypatch.setattr(grok.subprocess, "run", fake_run)
+    md, client, state = run_demo(tmp_path, monkeypatch, grok=True)
+
+    assert sent["cmd"][:2] == ["/bin/grok", "-p"] and "## Proposed signals" in sent["cmd"][2]
+    assert "Chart data" not in sent["cmd"][2] and len(sent["cmd"][2]) < grok.MAX_ARG  # compact brief, no raw bars
+    critic_prompt = client.calls[-1]["messages"][0]["content"]
+    assert "## Second opinion from a different AI model (Grok)\nMNQ: disagree, entry will not fill." in critic_prompt
+    assert "## Grok's second opinion" in md and "\x1b" not in md
+    assert list(state["desks"]) == ["news", "chart", "signal", "grok", "risk"]
+    assert state["desks"]["grok"]["status"] == "done" and state["second_opinion"].startswith("MNQ: disagree")
+
+
+def test_grok_failure_does_not_sink_the_run(tmp_path, monkeypatch):
+    from trading_desk import grok
+
+    monkeypatch.setattr(grok.shutil, "which", lambda name: None)
+    md, client, state = run_demo(tmp_path, monkeypatch, grok=True)
+    assert "Grok second opinion skipped" in md and "command was not found" in md
+    assert state["desks"]["grok"]["status"] == "error" and state["desks"]["risk"]["status"] == "done"
+    assert "Second opinion from a different AI model" not in client.calls[-1]["messages"][0]["content"]
+
+    monkeypatch.setattr(grok.shutil, "which", lambda name: "/bin/" + name)
+    monkeypatch.setattr(grok.subprocess, "run",
+                        lambda cmd, **kw: SimpleNamespace(returncode=1, stdout="", stderr="not signed in"))
+    with pytest.raises(RuntimeError, match="not signed in"):
+        grok.ask("hi")
+
+
+def test_grok_brief_is_cut_to_fit_the_command_line():
+    from trading_desk import grok
+
+    read = agents.ChartBook(cross_market="x", analyses=[])
+    signals = agents.SignalSet(market_context="x", signals=[])
+    prompt = grok.build_prompt("now", read, signals, [], "n" * 60_000)
+    assert len(prompt) <= grok.MAX_ARG and "briefing cut short" in prompt
+    assert "cut short" not in grok.build_prompt("now", read, signals, [], "short news")

@@ -11,9 +11,9 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import agents, data, news, obsidian, report, risk
+from . import agents, data, grok, news, obsidian, report, risk
 from .config import INSTRUMENTS
-from .office import Office
+from .office import DESKS, Office
 
 
 def _board(signals, reviews, sheet) -> list[dict]:
@@ -87,14 +87,33 @@ def run_once(args, client, office: Office) -> str:
         for s in signals.signals
         if s.symbol in by_symbol
     ]
+    opinion = ""
+    if args.grok:
+        print("grok second opinion...", file=sys.stderr)
+        office.start("grok")
+        try:
+            if args.demo:
+                from . import demo
+
+                opinion = demo.second_opinion(office.emitter("grok"), bool(args.office))
+            else:
+                opinion = grok.second_opinion(now, read, signals, sheet, briefing, office.emitter("grok"))
+            office.done("grok", "Second opinion handed to the risk desk")
+            office.set(second_opinion=opinion)
+        except Exception as e:  # Grok is an extra voice: without it the run still finishes
+            errors.append(f"Grok second opinion skipped: {e}")
+            office.desk_error("grok", str(e))
+
     print("risk desk...", file=sys.stderr)
     office.start("risk")
-    reviews = agents.critic_agent(client, now, charts, briefing, read, signals, sheet, office.emitter("risk"))
+    reviews = agents.critic_agent(
+        client, now, charts, briefing, read, signals, sheet, office.emitter("risk"), opinion
+    )
     office.done("risk", ", ".join(f"{r.symbol}: {report.VERDICT[r.verdict]}" for r in reviews.reviews))
     office.set(board=_board(signals, reviews, sheet), market_context=signals.market_context,
                portfolio_note=reviews.portfolio_note, phase="idle")
 
-    md = report.render(now, briefing, signals, reviews, sheet, errors, read)
+    md = report.render(now, briefing, signals, reviews, sheet, errors, read, opinion)
     if args.demo:
         return "> DEMO RUN — scripted output, not real analysis.\n\n" + md
     out = Path(args.out)
@@ -104,7 +123,7 @@ def run_once(args, client, office: Office) -> str:
     (out / f"{stem}.json").write_text(
         json.dumps(
             {"time": now, "news": briefing, "chart_read": read.model_dump(), "signals": signals.model_dump(),
-             "risk": sheet, "reviews": reviews.model_dump(), "errors": errors},
+             "risk": sheet, "second_opinion": opinion, "reviews": reviews.model_dump(), "errors": errors},
             indent=1,
         )
     )
@@ -124,6 +143,10 @@ def main() -> None:
     p.add_argument("--backend", choices=["api", "claude-code"], default="api",
                    help="what runs the agents: api (ANTHROPIC_API_KEY, billed per run) or claude-code "
                         "(your Claude subscription, through Claude Code installed on this computer)")
+    p.add_argument("--grok", action="store_true",
+                   help="add Grok as a fifth desk giving a second opinion on the signals (needs xAI's "
+                        "`grok` command installed and signed in with your Grok subscription)")
+    p.add_argument("--grok-test", action="store_true", help="check the Grok connection with one tiny question and exit")
     p.add_argument("--source", choices=["yahoo", "rithmic"], default="yahoo",
                    help="price data: yahoo (free, ~10-15 min delayed) or rithmic (real time; uses your "
                         "TradeSea/prop-firm Rithmic login from RITHMIC_* environment variables)")
@@ -157,7 +180,17 @@ def main() -> None:
 
         client = anthropic.Anthropic()
 
-    office = Office(demo=args.demo)
+    if args.grok_test:
+        print("Asking Grok one test question...")
+        try:
+            print("Grok answered:\n" + grok.ask("Reply with one short sentence confirming you can read this."))
+            print("\nGrok is connected. Add --grok to your normal command.")
+        except RuntimeError as e:
+            raise SystemExit(f"Grok is not working yet: {e}")
+        return
+
+    desks = DESKS[:-1] + ("grok", DESKS[-1]) if args.grok else DESKS
+    office = Office(demo=args.demo, desks=desks)
     if args.office:
         wanted = args.office
         args.office = office.serve(wanted).server_address[1]

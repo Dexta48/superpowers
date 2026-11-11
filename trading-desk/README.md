@@ -40,7 +40,7 @@ python -m trading_desk --office
 
 Your browser opens the office automatically (normally http://127.0.0.1:47800; if another
 program on your computer already uses that port, the office picks a free one and prints the
-link). It is a room with four characters:
+link). It is a room with four characters (five with `--grok`):
 
 - **Nia** (news desk, headset), **Kai** (chart desk, curly hair), **Sol** (signal desk, cap)
   and **Rook** (risk desk, glasses).
@@ -68,6 +68,7 @@ python -m trading_desk --office --demo
 | `--symbols MGC MNQ` | Subset of instruments |
 | `--account`, `--risk-pct` | Account size and max % risked per trade, used for position sizing |
 | `--backend claude-code` | Run the agents on your Claude subscription through Claude Code (default `api`) |
+| `--grok` | Add Grok as a fifth desk giving a second opinion (`--grok-test` checks the connection) |
 | `--source rithmic` | Real-time futures data through your Rithmic login (default `yahoo`, delayed) |
 | `--office [PORT]` | Open the office page (default port 47800) |
 | `--vault PATH` | Obsidian vault to file reports, the signals log and the Office note in |
@@ -94,6 +95,35 @@ python -m trading_desk --office --backend claude-code
 No `ANTHROPIC_API_KEY` is needed. Each run draws on your plan's usage limits rather than
 being billed, so a frequent `--every` timer can use up your allowance. The agents use your
 Claude Code default model; set `TRADING_DESK_MODEL` to pick one your plan includes.
+
+## Grok as a second opinion
+
+With a Grok subscription you can add a fifth desk: **Grok**, a different model from a
+different company, reviews Sol's signals before Rook rules on them. Rook is told to weigh
+Grok's objections on their merits and not to defer to them, so a disagreement between the
+two models shows up in his verdict.
+
+1. Install xAI's Grok command-line tool and run `grok` once to sign in with your Grok account.
+2. Check the connection:
+
+```bash
+python -m trading_desk --grok-test
+```
+
+3. Add `--grok` to your normal command:
+
+```bash
+python -m trading_desk --office --backend claude-code --grok
+```
+
+Grok gets a compact brief (Kai's read, the signals, the risk sheet and the news), not the raw
+price bars, and answers in plain text. If Grok is not installed, not signed in, or your plan
+refuses the request, the run carries on without it and the office shows the reason at Grok's
+desk. Each run uses some of your Grok plan's allowance. `--demo --grok` shows the fifth desk
+with a scripted, clearly labelled answer.
+
+This uses the tool's headless mode (`grok -p "..."`). If your install needs a different
+command or extra flags, set `TRADING_DESK_GROK_CMD`, for example `grok --model some-model`.
 
 ## Real-time data (Rithmic / TradeSea)
 

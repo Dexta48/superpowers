@@ -11,7 +11,7 @@ VERDICT = {
 }
 
 
-def render(now: str, news: str, signals, reviews, risk: list[dict], errors: list[str], read=None) -> str:
+def render(now: str, news: str, signals, reviews, risk: list[dict], errors: list[str], read=None, opinion: str = "") -> str:
     out = [f"# Trading desk — {now}", ""]
     if errors:
         out += ["> **Data problems:** " + "; ".join(errors), ""]
@@ -49,6 +49,8 @@ def render(now: str, news: str, signals, reviews, risk: list[dict], errors: list
                 "",
             ]
     out += ["## Combined exposure", "", reviews.portfolio_note, ""]
+    if opinion:
+        out += ["## Grok's second opinion", "", opinion, ""]
     if read:
         out += ["## Chart read", "", read.cross_market, ""]
         for a in read.analyses:

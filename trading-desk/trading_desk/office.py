@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 PAGE = Path(__file__).with_name("office.html")
-DESKS = ("news", "chart", "signal", "risk")
+DESKS = ("news", "chart", "signal", "risk")  # the standing team; "grok" joins when enabled
 
 
 def _desk():
@@ -21,14 +21,15 @@ def _desk():
 
 
 class Office:
-    def __init__(self, demo: bool = False):
+    def __init__(self, demo: bool = False, desks: tuple = DESKS):
+        self.desks = desks
         self._lock = threading.Lock()
         self.run_requested = threading.Event()
         self._s = {
             "demo": demo, "run": 0, "phase": "idle", "error": "", "started": "", "next_run_at": None,
-            "tickers": [], "desks": {d: _desk() for d in DESKS},
+            "tickers": [], "desks": {d: _desk() for d in desks},
             "board": [], "market_context": "", "portfolio_note": "", "briefing": "",
-            "chart_read": [], "cross_market": "",
+            "chart_read": [], "cross_market": "", "second_opinion": "",
         }
 
     def set(self, **kw) -> None:
@@ -38,7 +39,7 @@ class Office:
     def begin_run(self, started: str) -> None:
         with self._lock:
             self._s.update(run=self._s["run"] + 1, phase="data", error="", started=started,
-                           next_run_at=None, desks={d: _desk() for d in DESKS})
+                           next_run_at=None, desks={d: _desk() for d in self.desks}, second_opinion="")
 
     def start(self, desk: str) -> None:
         with self._lock:
@@ -48,6 +49,11 @@ class Office:
     def done(self, desk: str, summary: str) -> None:
         with self._lock:
             self._s["desks"][desk].update(status="done", doing="", summary=summary)
+
+    def desk_error(self, desk: str, message: str) -> None:
+        """One desk failed but the run carries on without it."""
+        with self._lock:
+            self._s["desks"][desk].update(status="error", doing="", summary=message)
 
     def fail(self, message: str) -> None:
         with self._lock:

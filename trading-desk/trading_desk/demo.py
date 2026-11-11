@@ -158,3 +158,21 @@ class FakeClient:
             thought = "Two index longs are the same trade. Is the stop outside 1h ATR? Does CPI land before target two? "
         events = [*_block("thinking", _chunks(thought)), *_block("text", _chunks(json.dumps(data, indent=1), 40))]
         return _Stream(events, NS(stop_reason="end_turn", parsed_output=kw["output_format"].model_validate(data)), self.delay)
+
+
+OPINION = """DEMO second opinion — scripted, not written by Grok.
+
+MGC: agree with flat. Nothing to lean on before CPI.
+MNQ: partly agree. The trend is fine but the entry sits one ATR below price; it may not fill.
+SPX: disagree. It is the same trade as MNQ; pick one.
+
+Overall: one index long at half size, nothing in gold until after the print."""
+
+
+def second_opinion(emit, slow: bool) -> str:
+    emit("doing", "thinking")
+    if slow:
+        time.sleep(2.5)
+    emit("screen_reset", "")
+    emit("screen", OPINION)
+    return OPINION

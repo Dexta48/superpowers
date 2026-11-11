@@ -7,12 +7,12 @@
 <style>
 :root{
   --bg:#f3f0ea; --wall:#e9e3d7; --wall2:#ddd5c5; --floor:#cbbfa9; --floor2:#bfb29a; --card:#fffdf9; --ink:#22201c; --muted:#6f695e;
-  --line:#cfc7b8; --screen:#11161c; --screen-ink:#b9f3c9; --news:#2f6fb3; --chart:#1f8a7a; --signal:#b9770e; --risk:#a23b3b;
+  --line:#cfc7b8; --screen:#11161c; --screen-ink:#b9f3c9; --news:#2f6fb3; --chart:#1f8a7a; --grok:#5b4bb7; --signal:#b9770e; --risk:#a23b3b;
   --up:#1d7a46; --down:#b23a3a; --flat:#6f695e; --desk:#b08d5e; --desk-edge:#8a6c44; --sky:#bfe0f5; --paper:#fffdf6;
 }
 @media (prefers-color-scheme: dark){:root{
   --bg:#15171a; --wall:#262a31; --wall2:#1f2228; --floor:#3a352d; --floor2:#322e27; --card:#1f2329; --ink:#e9e6df; --muted:#9a968c;
-  --line:#343a43; --screen:#0a0d11; --news:#6aa9e9; --chart:#4cc3b0; --signal:#e3a94a; --risk:#e07a7a;
+  --line:#343a43; --screen:#0a0d11; --news:#6aa9e9; --chart:#4cc3b0; --grok:#9b8cf0; --signal:#e3a94a; --risk:#e07a7a;
   --up:#56c98a; --down:#ef7f7f; --flat:#9a968c; --desk:#7a6242; --desk-edge:#5b4830; --sky:#1b2a44; --paper:#e9e6df;
 }}
 *{box-sizing:border-box}
@@ -54,7 +54,7 @@ button:disabled{opacity:.5;cursor:default}
 @media (prefers-reduced-motion: reduce){#room *{animation:none!important}}
 
 /* desk panels */
-.panels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;padding:14px 16px;max-width:1200px;margin:0 auto}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;padding:14px 16px;max-width:1200px;margin:0 auto}
 .desk{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .top{padding:7px 10px;display:flex;align-items:center;gap:8px;background:var(--c)}
 .lamp{width:10px;height:10px;border-radius:50%;background:#fff6;flex:none}
@@ -83,8 +83,7 @@ h2{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute
 pre.brief{white-space:pre-wrap;font:inherit;font-size:14px}
 .empty{color:var(--muted)}
 footer{color:var(--muted);font-size:12px;margin-top:24px}
-@media (max-width:1000px){.panels{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:560px){.panels{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -100,7 +99,7 @@ footer{color:var(--muted);font-size:12px;margin-top:24px}
   <rect class="floor" y="252" width="1000" height="188"/>
   <g class="floor2"><rect y="300" width="1000" height="2"/><rect y="360" width="1000" height="2"/><rect y="425" width="1000" height="2"/></g>
   <!-- window -->
-  <g transform="translate(-125 0)"><rect x="585" y="48" width="120" height="120" rx="4" class="wood2"/><rect x="591" y="54" width="108" height="108" fill="var(--sky)"/>
+  <g id="window" transform="translate(-125 0)"><rect x="585" y="48" width="120" height="120" rx="4" class="wood2"/><rect x="591" y="54" width="108" height="108" fill="var(--sky)"/>
   <rect x="643" y="54" width="4" height="108" class="wood2"/><rect x="591" y="106" width="108" height="4" class="wood2"/></g>
   <!-- coffee corner -->
   <rect x="14" y="252" width="120" height="50" rx="3" class="wood"/><rect x="14" y="252" width="120" height="7" class="wood2"/>
@@ -125,6 +124,7 @@ footer{color:var(--muted);font-size:12px;margin-top:24px}
   <h2>Signal board</h2>
   <div class="board" id="board"><p class="empty">Nothing on the board yet — the desks are still working.</p></div>
   <h2>Combined exposure</h2><p class="note empty" id="port">—</p>
+  <div id="grokbox" hidden><h2>Grok's second opinion</h2><pre class="brief" id="grok"></pre></div>
   <h2>Kai's chart read</h2>
   <div class="board" id="read"><p class="empty">No chart read yet.</p></div>
   <h2>News briefing</h2><pre class="brief empty" id="brief">—</pre>
@@ -138,15 +138,15 @@ const svg=(tag,attrs,text)=>{const e=document.createElementNS(NS,tag);for(const 
 const SEAT_Y=345, AISLE_Y=415, SPEED=120;
 const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// id, name, role, colour, desk centre x, idle text, skin, look
-// `to` is the desk each one hands finished work to (Rook pins his on the board).
-const TEAM=[
- {id:"news",name:"Nia",role:"News desk",color:"var(--news)",cx:225,to:"signal",idle:"waiting",skin:"#8d5b3f",look:"nia"},
- {id:"chart",name:"Kai",role:"Chart desk",color:"var(--chart)",cx:410,to:"signal",idle:"waiting",skin:"#c68863",look:"kai"},
- {id:"signal",name:"Sol",role:"Signal desk",color:"var(--signal)",cx:595,to:"risk",idle:"waiting",skin:"#f0c9a0",look:"sol"},
- {id:"risk",name:"Rook",role:"Risk desk",color:"var(--risk)",cx:780,to:null,idle:"waiting",skin:"#d9a877",look:"rook"},
-];
-const HALF=65, STEP=92;   // desk half-width; how far left of a desk the walkway into its seat is
+// Everyone who can sit in the office. Which of them are in today comes from the program.
+const ROSTER={
+ news:{name:"Nia",role:"News desk",color:"var(--news)",skin:"#8d5b3f",look:"nia"},
+ chart:{name:"Kai",role:"Chart desk",color:"var(--chart)",skin:"#c68863",look:"kai"},
+ signal:{name:"Sol",role:"Signal desk",color:"var(--signal)",skin:"#f0c9a0",look:"sol"},
+ grok:{name:"Grok",role:"2nd opinion",color:"var(--grok)",skin:"#e6c3a5",look:"grok"},
+ risk:{name:"Rook",role:"Risk desk",color:"var(--risk)",skin:"#d9a877",look:"rook"},
+};
+let TEAM=[], HALF=65, STEP=92;   // desk half-width; how far left of a desk the walkway into its seat is
 const SPOTS={coffee:{x:100,y:SEAT_Y},window:{x:520,y:SEAT_Y},board:{x:915,y:SEAT_Y}};
 const LOOKS={
  nia:`<circle cx="0" cy="-101" r="6" fill="#2a1d18"/><path d="M-13.5 -84a13.5 13.5 0 0 1 27 0q-13 -9 -27 0z" fill="#2a1d18"/>
@@ -154,13 +154,25 @@ const LOOKS={
       <path d="M-14 -81q0 8 8 8" fill="none" stroke="#444" stroke-width="1.5"/>`,
  kai:`<g fill="#1d1a17"><circle cx="-9" cy="-93" r="6"/><circle cx="-1" cy="-97" r="6.5"/><circle cx="8" cy="-94" r="6"/><circle cx="-12.5" cy="-86" r="4.5"/><circle cx="12.5" cy="-87" r="4.5"/></g>
       <rect x="-13" y="-58" width="9" height="11" rx="1.5" fill="#fff" opacity=".9"/><path d="M-11 -50l2.5 -4 2 2 2.5 -4" fill="none" stroke="#1f8a7a" stroke-width="1.2"/>`,
+ grok:`<path d="M-15 -80a15 16 0 0 1 30 0v6h-5v-8a10 10 0 0 0 -20 0v8h-5z" fill="#2c2550"/>
+      <rect x="-11" y="-88" width="22" height="7" rx="3.5" fill="#15121f"/><rect x="-9" y="-86.5" width="7" height="3" rx="1.5" fill="#8f7cff"/><rect x="2" y="-86.5" width="7" height="3" rx="1.5" fill="#8f7cff"/>`,
  sol:`<path d="M-13.5 -86a13.5 13.5 0 0 1 27 0z" fill="#d18a12"/><rect x="2" y="-88" width="19" height="4" rx="2" fill="#a86c08"/>`,
  rook:`<path d="M-13.5 -85a13.5 13.5 0 0 1 27 0q-6 -5 -13 -5t-14 5z" fill="#8a8a8a"/>
       <g fill="none" stroke="#222" stroke-width="1.6"><circle cx="-5" cy="-84" r="4.2"/><circle cx="5" cy="-84" r="4.2"/><path d="M-0.8 -84h1.6"/></g>
       <rect x="-3" y="-66" width="6" height="16" fill="#fff" opacity=".85"/><path d="M0 -66l-3 6 3 12 3 -12z" fill="#333"/>`,
 };
 const ui={}, chars={};
-for(const t of TEAM){
+// Lay out one desk, character and panel per agent in today's team.
+function build(ids){
+  const five=ids.length>4;
+  HALF=five?55:65; STEP=five?80:92;
+  const first=five?200:225, pitch=five?160:185;
+  SPOTS.window.x=five?600:520; SPOTS.board.x=five?925:915;
+  $("window").setAttribute("transform",`translate(${SPOTS.window.x-645} 0)`);
+  // each desk hands its work to the next one that uses it; Nia and Kai both feed Sol
+  const after={news:"signal",chart:"signal",signal:ids.includes("grok")?"grok":"risk",grok:"risk",risk:null};
+  TEAM=ids.filter(id=>ROSTER[id]).map((id,i)=>({id,...ROSTER[id],cx:first+i*pitch,to:after[id],idle:"waiting"}));
+  for(const t of TEAM){
   // desk furniture
   const d=svg("g");
   d.append(svg("rect",{x:t.cx-HALF,y:300,width:HALF*2,height:13,rx:3,class:"wood2"}),
@@ -188,6 +200,7 @@ for(const t of TEAM){
   const summary=el("div","summary"),log=el("ul","log");
   p.append(top,thought,mon,summary,log);$("panels").append(p);
   ui[t.id]={p,doing,thought,txt,summary,log};
+  }
 }
 const atSeat=c=>c.x===c.t.cx&&c.y===SEAT_Y;
 // Walk via the aisle so nobody cuts through a desk.
@@ -261,10 +274,11 @@ requestAnimationFrame(frame);
 
 const fmt=n=>n==null?"—":n.toLocaleString(undefined,{maximumFractionDigits:2});
 function render(s){
+  if(!TEAM.length) build(Object.keys(s.desks));
   $("demo").hidden=!s.demo;
   const busy=s.phase!=="idle";
   $("run").disabled=busy;
-  const who={news:"Nia is on the news",chart:"Kai is reading the charts",signal:"Sol is building the signals",risk:"Rook is reviewing the signals",data:"loading charts"};
+  const who={news:"Nia is on the news",chart:"Kai is reading the charts",signal:"Sol is building the signals",grok:"Grok is giving a second opinion",risk:"Rook is reviewing the signals",data:"loading charts"};
   let st=busy?`Run ${s.run} in progress — ${who[s.phase]||s.phase}`:s.run?`Run ${s.run} finished · started ${s.started}`:"Idle";
   if(!busy&&s.next_run_at)st+=` · next run ${new Date(s.next_run_at*1000).toLocaleTimeString()}`;
   $("status").textContent=st;
@@ -313,6 +327,7 @@ function render(s){
   }else if(busy){$("read").replaceChildren(el("p","empty","No chart read yet."))}
   const set=(id,t)=>{$(id).textContent=t||"—";$(id).classList.toggle("empty",!t)};
   set("port",[s.cross_market,s.market_context,s.portfolio_note].filter(Boolean).join(" "));set("brief",s.briefing);
+  $("grokbox").hidden=!s.second_opinion; $("grok").textContent=s.second_opinion||"";
   onState(s);
 }
 async function poll(){
