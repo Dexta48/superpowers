@@ -121,8 +121,8 @@ def main() -> None:
     p.add_argument("--source", choices=["yahoo", "rithmic"], default="yahoo",
                    help="price data: yahoo (free, ~10-15 min delayed) or rithmic (real time; uses your "
                         "TradeSea/prop-firm Rithmic login from RITHMIC_* environment variables)")
-    p.add_argument("--office", nargs="?", type=int, const=8765, metavar="PORT",
-                   help="open the office: a local page where you watch the agents work (default port 8765)")
+    p.add_argument("--office", nargs="?", type=int, const=47800, metavar="PORT",
+                   help="open the office: a local page where you watch the agents work (default port 47800)")
     p.add_argument("--no-browser", action="store_true", help="do not open the office in your browser automatically")
     p.add_argument("--demo", action="store_true",
                    help="scripted fake run: no API key, no market data, no cost — to try the office")

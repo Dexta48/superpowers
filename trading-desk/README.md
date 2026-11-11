@@ -37,7 +37,7 @@ Watch the three agents work in your browser:
 python -m trading_desk --office
 ```
 
-Your browser opens the office automatically (normally http://127.0.0.1:8765; if another
+Your browser opens the office automatically (normally http://127.0.0.1:47800; if another
 program on your computer already uses that port, the office picks a free one and prints the
 link). It is a room with three characters:
 
@@ -66,7 +66,7 @@ python -m trading_desk --office --demo
 | `--account`, `--risk-pct` | Account size and max % risked per trade, used for position sizing |
 | `--backend claude-code` | Run the agents on your Claude subscription through Claude Code (default `api`) |
 | `--source rithmic` | Real-time futures data through your Rithmic login (default `yahoo`, delayed) |
-| `--office [PORT]` | Open the office page (default port 8765) |
+| `--office [PORT]` | Open the office page (default port 47800) |
 | `--vault PATH` | Obsidian vault to file reports, the signals log and the Office note in |
 | `--demo` | Scripted fake run, clearly labelled; nothing real is fetched or called |
 | `--every 30` | Re-run every 30 minutes |
