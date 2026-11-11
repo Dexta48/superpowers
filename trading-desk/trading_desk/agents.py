@@ -121,20 +121,54 @@ def _check(resp):
     return resp
 
 
-def _structured(client: anthropic.Anthropic, system: str, user: str, schema):
-    resp = client.beta.messages.parse(
+def _quiet(kind: str, text: str) -> None:
+    pass
+
+
+def _stream(client: anthropic.Anthropic, emit, **kw):
+    """One streamed model call. `emit(kind, text)` gets a live feed of what the
+    agent is doing, for the office view: "doing" (status label), "thought"
+    (reasoning summary), "screen" (output as it is written), "log" (searches)."""
+    with client.beta.messages.stream(
         model=MODEL,
-        max_tokens=16000,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-        output_format=schema,
+        max_tokens=32000,
+        thinking={"type": "adaptive", "display": "summarized"},
         output_config={"effort": EFFORT},
         **FALLBACK,
-    )
-    return _check(resp).parsed_output
+        **kw,
+    ) as stream:
+        tool_json = None
+        for ev in stream:
+            if ev.type == "content_block_start":
+                kind = ev.content_block.type
+                if kind == "thinking":
+                    emit("doing", "thinking")
+                elif kind == "server_tool_use":
+                    tool_json = ""
+                    emit("doing", "searching the web")
+                elif kind == "text":
+                    emit("doing", "writing")
+                    emit("screen_reset", "")
+            elif ev.type == "content_block_delta":
+                d = ev.delta
+                if d.type == "thinking_delta":
+                    emit("thought", d.thinking)
+                elif d.type == "text_delta":
+                    emit("screen", d.text)
+                elif d.type == "input_json_delta" and tool_json is not None:
+                    tool_json += d.partial_json
+            elif ev.type == "content_block_stop" and tool_json is not None:
+                try:
+                    query = json.loads(tool_json).get("query")
+                except (ValueError, AttributeError):
+                    query = None
+                if query:
+                    emit("log", f"searched: {query}")
+                tool_json = None
+        return _check(stream.get_final_message())
 
 
-def news_agent(client: anthropic.Anthropic, now: str, calendar: list[dict] | None) -> str:
+def news_agent(client, now: str, calendar: list[dict] | None, emit=_quiet) -> str:
     feed = (
         "Calendar feed (unofficial, verify):\n" + json.dumps(calendar, indent=1)
         if calendar
@@ -142,16 +176,12 @@ def news_agent(client: anthropic.Anthropic, now: str, calendar: list[dict] | Non
     )
     messages = [{"role": "user", "content": f"Current time: {now}\n\n{feed}"}]
     for _ in range(5):  # a long search turn can pause; send it back to resume
-        resp = _check(
-            client.beta.messages.create(
-                model=MODEL,
-                max_tokens=16000,
-                system=NEWS_SYSTEM,
-                messages=messages,
-                tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 8}],
-                output_config={"effort": EFFORT},
-                **FALLBACK,
-            )
+        resp = _stream(
+            client,
+            emit,
+            system=NEWS_SYSTEM,
+            messages=messages,
+            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 8}],
         )
         if resp.stop_reason != "pause_turn":
             break
@@ -161,20 +191,27 @@ def news_agent(client: anthropic.Anthropic, now: str, calendar: list[dict] | Non
     return text[-1].strip() if text else ""
 
 
-def signal_agent(client, now: str, charts: list[dict], news: str) -> SignalSet:
+def _structured(client, emit, system: str, user: str, schema):
+    resp = _stream(
+        client, emit, system=system, messages=[{"role": "user", "content": user}], output_format=schema
+    )
+    return resp.parsed_output
+
+
+def signal_agent(client, now: str, charts: list[dict], news: str, emit=_quiet) -> SignalSet:
     user = (
         f"Current time: {now}\n\n## News briefing\n{news}\n\n"
         f"## Chart data\n{json.dumps(charts)}"
     )
-    return _structured(client, SIGNAL_SYSTEM, user, SignalSet)
+    return _structured(client, emit, SIGNAL_SYSTEM, user, SignalSet)
 
 
 def critic_agent(
-    client, now: str, charts: list[dict], news: str, signals: SignalSet, risk: list[dict]
+    client, now: str, charts: list[dict], news: str, signals: SignalSet, risk: list[dict], emit=_quiet
 ) -> ReviewSet:
     user = (
         f"Current time: {now}\n\n## Signals under review\n{signals.model_dump_json(indent=1)}\n\n"
         f"## Risk sheet\n{json.dumps(risk, indent=1)}\n\n## News briefing\n{news}\n\n"
         f"## Chart data\n{json.dumps(charts)}"
     )
-    return _structured(client, CRITIC_SYSTEM, user, ReviewSet)
+    return _structured(client, emit, CRITIC_SYSTEM, user, ReviewSet)

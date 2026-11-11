@@ -1,6 +1,8 @@
 """Offline tests: indicator/risk maths on synthetic bars, and the full pipeline
 with the model client stubbed."""
-import sys
+import json
+import urllib.error
+import urllib.request
 from types import SimpleNamespace
 
 import numpy as np
@@ -8,7 +10,8 @@ import pandas as pd
 import pytest
 
 from trading_desk import __main__ as cli
-from trading_desk import agents, data, report, risk
+from trading_desk import agents, data, demo, report, risk
+from trading_desk.office import Office
 from trading_desk.config import INSTRUMENTS
 
 
@@ -65,65 +68,65 @@ def test_risk_flags_malformed_and_unaffordable():
     assert risk.assess({"direction": "flat"}, INSTRUMENTS["MGC"], chart("MGC"), 1, 1)["direction"] == "flat"
 
 
-SIGNALS = agents.SignalSet(
-    market_context="Risk-on.",
-    signals=[
-        agents.Signal(symbol="MNQ", direction="long", setup="pullback", timeframe="intraday",
-                      entry=250.0, stop=245.0, targets=[260.0], confidence="medium",
-                      rationale="Trend up.", invalidation="15m close under 247"),
-        agents.Signal(symbol="MGC", direction="flat", setup="none", timeframe="intraday",
-                      entry=0, stop=0, targets=[], confidence="low",
-                      rationale="CPI tomorrow.", invalidation="n/a"),
-    ],
-)
-REVIEWS = agents.ReviewSet(
-    portfolio_note="Single index bet.",
-    reviews=[agents.Review(symbol="MNQ", verdict="take_reduced_size", score_out_of_10=6,
-                           strengths=["with trend"], weaknesses=["extended"],
-                           risk_assessment="ok", news_risk="CPI", suggested_adjustments="half size")],
-)
-
-
-class FakeMessages:
-    def __init__(self):
-        self.calls = []
-        self.news_turns = [
-            SimpleNamespace(stop_reason="pause_turn", content=[SimpleNamespace(type="text", text="searching")]),
-            SimpleNamespace(stop_reason="end_turn", content=[
-                SimpleNamespace(type="text", text="let me check"),
-                SimpleNamespace(type="web_search_tool_result"),
-                SimpleNamespace(type="text", text="CPI Thu 08:30 ET")]),
-        ]
-
-    def create(self, **kw):
-        self.calls.append(("create", kw))
-        return self.news_turns.pop(0)
-
-    def parse(self, **kw):
-        self.calls.append(("parse", kw))
-        out = SIGNALS if kw["output_format"] is agents.SignalSet else REVIEWS
-        return SimpleNamespace(stop_reason="end_turn", parsed_output=out)
+def run_demo(tmp_path, monkeypatch, **client_kw):
+    monkeypatch.setattr(data, "fetch", demo.bars)
+    monkeypatch.setattr(cli.news, "upcoming_usd_events", lambda: [{"title": "CPI"}])
+    client = demo.FakeClient(**client_kw)
+    args = SimpleNamespace(symbols=["MNQ", "MGC", "SPX"], account=10_000, risk_pct=1.0,
+                           data_only=False, demo=False, out=str(tmp_path), webhook=None)
+    office = Office()
+    return cli.run_once(args, client, office), client, json.loads(office.json())
 
 
 def test_pipeline_end_to_end(tmp_path, monkeypatch):
-    monkeypatch.setattr(data, "fetch", lambda inst, tf: bars())
-    monkeypatch.setattr(cli.news, "upcoming_usd_events", lambda: [{"title": "CPI"}])
-    fake = FakeMessages()
-    client = SimpleNamespace(beta=SimpleNamespace(messages=fake))
-    args = SimpleNamespace(symbols=["MNQ", "MGC"], account=10_000, risk_pct=1.0,
-                           data_only=False, out=str(tmp_path), webhook=None)
-    md = cli.run_once(args, client)
+    md, client, state = run_demo(tmp_path, monkeypatch, pause_first=True)
 
-    kinds = [k for k, _ in fake.calls]
-    assert kinds == ["create", "create", "parse", "parse"]  # paused news turn was resumed
-    assert fake.calls[1][1]["messages"][-1]["role"] == "assistant"
-    signal_prompt = fake.calls[2][1]["messages"][0]["content"]
-    assert "CPI Thu 08:30 ET" in signal_prompt and "let me check" not in signal_prompt
-    critic_prompt = fake.calls[3][1]["messages"][0]["content"]
-    assert '"risk_usd_per_contract": 10.0' in critic_prompt  # 5 pts x $2 on MNQ
+    assert len(client.calls) == 4  # paused news turn resumed, then signal, then critic
+    assert client.calls[1]["messages"][-1]["role"] == "assistant"
+    signal_prompt = client.calls[2]["messages"][0]["content"]
+    assert "No-trade windows" in signal_prompt and "let me check" not in signal_prompt
+    assert '"risk_usd_per_contract"' in client.calls[3]["messages"][0]["content"]
     assert "MNQ — LONG → risk desk: **TAKE (reduced size)** (6/10)" in md
-    assert "MGC — FLAT" in md and "CPI Thu 08:30 ET" in md
+    assert "MGC — FLAT" in md and "SPX — LONG → risk desk: **REJECT**" in md
     assert len(list(tmp_path.iterdir())) == 2
+
+    # the office saw every desk work and finish
+    assert state["phase"] == "idle" and state["run"] == 1
+    assert all(d["status"] == "done" for d in state["desks"].values())
+    assert state["desks"]["news"]["log"] == [
+        "searched: US economic calendar this week CPI", "searched: Fed speakers this week"]
+    assert "CPI time" in state["desks"]["news"]["thought"]
+    assert state["desks"]["risk"]["screen"].lstrip().startswith("{")
+    assert [b["symbol"] for b in state["board"]] == ["MNQ", "MGC", "SPX"]
+    assert state["board"][0]["verdict"] == "TAKE (reduced size)" and state["board"][0]["rr"]
+    assert [t["symbol"] for t in state["tickers"]] == ["MNQ", "MGC", "SPX"]
+
+
+def test_office_server(tmp_path, monkeypatch):
+    office = Office()
+    server = office.serve(0)
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        assert "Trading desk" in urllib.request.urlopen(base + "/").read().decode()
+        assert json.loads(urllib.request.urlopen(base + "/state").read())["phase"] == "idle"
+        urllib.request.urlopen(urllib.request.Request(base + "/run", method="POST"))
+        assert office.run_requested.is_set()
+        office.run_requested.clear()
+        evil = urllib.request.Request(base + "/run", method="POST", headers={"Origin": "http://evil.example"})
+        with pytest.raises(urllib.error.HTTPError):
+            urllib.request.urlopen(evil)
+        assert not office.run_requested.is_set()
+    finally:
+        server.shutdown()
+
+
+def test_office_marks_failure():
+    office = Office()
+    office.begin_run("now")
+    office.start("signal")
+    office.fail("boom")
+    state = json.loads(office.json())
+    assert state["error"] == "boom" and state["desks"]["signal"]["status"] == "error"
 
 
 def test_refusal_raises():

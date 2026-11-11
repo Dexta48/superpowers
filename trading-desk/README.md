@@ -29,10 +29,33 @@ python -m trading_desk --account 10000 --risk-pct 1
 
 Each run prints a markdown report and saves it with the raw JSON under `reports/`.
 
+## The office
+
+Watch the three agents work in your browser:
+
+```bash
+python -m trading_desk --office
+```
+
+Open http://127.0.0.1:8765. Each agent has a desk: the monitor shows what it is writing as
+it writes, the speech bubble shows a summary of its reasoning, and the news desk lists each
+web search it makes. Work passes left to right; finished signals land on the board below with
+the risk desk's verdict stamped on them. **Run now** starts another run (each run is three
+paid model calls); add `--every 30` to also re-run on a timer. The page is served on
+localhost only.
+
+To see the office without an API key, market data or any cost, play a scripted fake run:
+
+```bash
+python -m trading_desk --office --demo
+```
+
 | Flag | Meaning |
 |---|---|
 | `--symbols MGC MNQ` | Subset of instruments |
 | `--account`, `--risk-pct` | Account size and max % risked per trade, used for position sizing |
+| `--office [PORT]` | Open the office page (default port 8765) |
+| `--demo` | Scripted fake run, clearly labelled; nothing real is fetched or called |
 | `--every 30` | Re-run every 30 minutes |
 | `--webhook URL` | Push each report to a Discord-style webhook |
 | `--data-only` | Print the chart data and calendar feed as JSON without calling the model |
@@ -58,5 +81,5 @@ override the model settings. Each run is three model calls, one of them with web
 python -m pytest
 ```
 
-Offline: indicator and risk maths on synthetic bars, and the full pipeline with the model
-client stubbed.
+Offline: indicator and risk maths on synthetic bars, the full pipeline against the scripted
+demo client, and the office server.
