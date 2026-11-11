@@ -34,7 +34,9 @@ BRIEFING = """**DEMO briefing — invented events, not a real calendar.**
 - **Thu 08:30 ET — CPI.** Matters to all three: a hot print lifts yields, pressuring MNQ and MGC.
 - **Fri 10:00 ET — Consumer sentiment.** Second-tier; mostly MNQ/SPX.
 
-**No-trade windows:** Thu 08:15–09:00 ET."""
+**No-trade windows:** Thu 08:15–09:00 ET.
+
+CHAT: Demo: CPI lands Thursday 08:30 ET. Nobody open anything fresh in the fifteen minutes before it."""
 
 
 def _read(charts):
@@ -49,7 +51,8 @@ def _read(charts):
             key_resistance=[d["prior_20bar_high"], d["window_high"]], key_support=[h["ema20"], d["pivots"]["s1"]],
             bias="neutral" if gold else "bullish", bias_strength="weak" if gold else "moderate",
             what_would_change_it="Demo: a 1h close below the EMA50.", data_quality="Demo data: scripted, not a real market."))
-    return {"cross_market": "Demo: the two indices are moving together; gold is not confirming.", "analyses": out}
+    return {"chat": "Demo: indices are stacked above every EMA, gold is going nowhere. Sol, the 1h EMA20 is your level.",
+            "cross_market": "Demo: the two indices are moving together; gold is not confirming.", "analyses": out}
 
 
 def _signals(charts):
@@ -67,12 +70,14 @@ def _signals(charts):
                             targets=[round(last + 2 * atr, 2), round(last + 5 * atr, 2)], confidence="medium",
                             rationale="Demo: all three timeframes above rising EMAs; buying the first pullback.",
                             invalidation="A 15m close below the 1h EMA50."))
-    return {"market_context": "Demo: indices trending up, gold flat ahead of data.", "signals": out}
+    return {"chat": "Demo: taking Kai's level. Long MNQ and SPX on the pullback, flat gold until Nia's CPI is out.",
+            "market_context": "Demo: indices trending up, gold flat ahead of data.", "signals": out}
 
 
 def _reviews(signals):
     verdicts = {"MNQ": ("take_reduced_size", 6), "SPX": ("reject", 3), "MGC": ("take", 7)}
     return {
+        "chat": "Demo: Sol, MNQ and SPX are the same trade. You get one, at half size, and SPX is the one I'm cutting.",
         "portfolio_note": "Demo: MNQ and SPX longs are one bet twice — take one, not both.",
         "reviews": [
             dict(symbol=s["symbol"], verdict=verdicts[s["symbol"]][0], score_out_of_10=verdicts[s["symbol"]][1],
@@ -160,7 +165,9 @@ class FakeClient:
         return _Stream(events, NS(stop_reason="end_turn", parsed_output=kw["output_format"].model_validate(data)), self.delay)
 
 
-OPINION = """DEMO second opinion — scripted, not written by Grok.
+OPINION = """CHAT: Demo: with Sol on gold, not on the indices. Two longs is one bet, and that MNQ entry may never fill.
+
+DEMO second opinion — scripted, not written by Grok.
 
 MGC: agree with flat. Nothing to lean on before CPI.
 MNQ: partly agree. The trend is fine but the entry sits one ATR below price; it may not fill.

@@ -50,6 +50,11 @@ link). It is a room with four characters (five with `--grok`):
   Rook; Rook pins the
   final verdicts on the signal board on the wall. Between jobs they wander to the coffee
   machine or the window.
+- **Team chat:** under the room is the desk's group chat. Each agent posts one short message
+  when its work is done, and each can see what was said before it, so they answer each other
+  by name (Rook pushing back on Sol, Grok disagreeing with a signal). Whoever just posted
+  also says it in a speech bubble in the room. The chat carries over between runs while the
+  office is open, and is saved in every report.
 - Below the room, each desk has a panel with the live output as it is written, a summary of
   the agent's reasoning, and the news desk's web searches. Finished signals land on the board
   at the bottom with Rook's verdict stamped on them.
@@ -177,6 +182,7 @@ python -m trading_desk --office --vault "/path/to/your/vault"
 - **`Reports/`** gets one note per run, with properties (date, each market's direction and
   verdict) you can query.
 - **`Signals log.md`** gains one table row per signal per run — a running journal.
+- **`Team chat.md`** keeps the group chat, one section per run.
 
 Demo runs write only the Office note, never fake reports. Obsidian is a desktop app reading a
 local folder, so this works on the computer where both it and the program run.

@@ -29,6 +29,7 @@ class Signal(BaseModel):
 
 
 class SignalSet(BaseModel):
+    chat: str  # your message in the team group chat
     market_context: str
     signals: list[Signal]
 
@@ -50,6 +51,7 @@ class ChartRead(BaseModel):
 
 
 class ChartBook(BaseModel):
+    chat: str  # your message in the team group chat
     cross_market: str  # how the three charts relate: leadership, divergence, confirmation
     analyses: list[ChartRead]
 
@@ -68,6 +70,7 @@ class Review(BaseModel):
 class ReviewSet(BaseModel):
     reviews: list[Review]
     portfolio_note: str  # correlation / combined exposure across the signals
+    chat: str  # your message in the team group chat
 
 
 NEWS_SYSTEM = """You are the news desk for a trader in MGC (micro gold futures), MNQ \
@@ -166,6 +169,47 @@ call, judge whether standing aside is right or whether a clear setup was missed.
 same-direction index trades are one bet at double size."""
 
 
+# The team shares a group chat. Each agent posts one message per run and can
+# see what was said before it, so they can answer each other.
+TEAM_CHAT = """
+
+You are {name} on a five-person desk: Nia (news), Kai (charts), Sol (signals), Grok (second \
+opinion, a different AI model, not always present) and Rook (risk). The desk has a group \
+chat. Post one message to it: one or two short sentences, first person, plain text, the way \
+you would type to colleagues. Say the one thing your teammates most need from your work this \
+run. If the chat so far (in your brief, when there is any) has something you agree or \
+disagree with, answer that teammate by name. {voice} The chat is only a heads-up: it must \
+agree with your full analysis and add no claim that is not in it. {where}"""
+
+VOICE = {
+    "news": ("Nia", "You are brisk and newsroom-dry."),
+    "chart": ("Kai", "You are precise and a little nerdy about levels."),
+    "signal": ("Sol", "You are decisive and brief."),
+    "risk": ("Rook", "You are blunt and sceptical, never rude."),
+}
+IN_FIELD = "Put the message in the `chat` field."
+LAST_LINE = "Put the message on the final line of your answer, starting with `CHAT:`."
+
+
+def _system(base: str, desk: str, where: str = IN_FIELD) -> str:
+    name, voice = VOICE[desk]
+    return base + TEAM_CHAT.format(name=name, voice=voice, where=where)
+
+
+def _chat_block(chat: str) -> str:
+    return f"## Team group chat so far\n{chat}\n\n" if chat else ""
+
+
+def split_chat(text: str) -> tuple[str, str]:
+    """Separate a trailing or leading `CHAT:` line from free-text output."""
+    lines = text.strip().splitlines()
+    for i in (len(lines) - 1, 0):
+        if lines and lines[i].strip().upper().startswith("CHAT:"):
+            msg = lines[i].strip()[5:].strip()
+            return "\n".join(lines[:i] + lines[i + 1:]).strip(), msg
+    return text.strip(), ""
+
+
 def _check(resp):
     if resp.stop_reason == "refusal":
         raise RuntimeError(f"model declined the request: {resp.stop_details}")
@@ -232,7 +276,7 @@ def news_agent(client, now: str, calendar: list[dict] | None, emit=_quiet) -> st
         resp = _stream(
             client,
             emit,
-            system=NEWS_SYSTEM,
+            system=_system(NEWS_SYSTEM, "news", LAST_LINE),
             messages=messages,
             tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 8}],
         )
@@ -251,30 +295,32 @@ def _structured(client, emit, system: str, user: str, schema):
     return resp.parsed_output
 
 
-def chart_agent(client, now: str, charts: list[dict], emit=_quiet) -> ChartBook:
-    user = f"Current time: {now}\n\n## Chart data\n{json.dumps(charts)}"
-    return _structured(client, emit, CHART_SYSTEM, user, ChartBook)
+def chart_agent(client, now: str, charts: list[dict], emit=_quiet, chat: str = "") -> ChartBook:
+    user = f"Current time: {now}\n\n{_chat_block(chat)}## Chart data\n{json.dumps(charts)}"
+    return _structured(client, emit, _system(CHART_SYSTEM, "chart"), user, ChartBook)
 
 
-def signal_agent(client, now: str, charts: list[dict], news: str, read: ChartBook, emit=_quiet) -> SignalSet:
+def signal_agent(
+    client, now: str, charts: list[dict], news: str, read: ChartBook, emit=_quiet, chat: str = ""
+) -> SignalSet:
     user = (
-        f"Current time: {now}\n\n## Chart desk's read\n{read.model_dump_json(indent=1)}\n\n"
+        f"Current time: {now}\n\n{_chat_block(chat)}## Chart desk's read\n{read.model_dump_json(indent=1)}\n\n"
         f"## News briefing\n{news}\n\n## Chart data\n{json.dumps(charts)}"
     )
-    return _structured(client, emit, SIGNAL_SYSTEM, user, SignalSet)
+    return _structured(client, emit, _system(SIGNAL_SYSTEM, "signal"), user, SignalSet)
 
 
 def critic_agent(
     client, now: str, charts: list[dict], news: str, read: ChartBook, signals: SignalSet,
-    risk: list[dict], emit=_quiet, second_opinion: str = "",
+    risk: list[dict], emit=_quiet, second_opinion: str = "", chat: str = "",
 ) -> ReviewSet:
     other = (
         f"## Second opinion from a different AI model (Grok)\n{second_opinion}\n\n" if second_opinion else ""
     )
     user = (
-        f"Current time: {now}\n\n## Signals under review\n{signals.model_dump_json(indent=1)}\n\n"
+        f"Current time: {now}\n\n{_chat_block(chat)}## Signals under review\n{signals.model_dump_json(indent=1)}\n\n"
         f"## Risk sheet\n{json.dumps(risk, indent=1)}\n\n{other}"
         f"## Chart desk's read\n{read.model_dump_json(indent=1)}\n\n## News briefing\n{news}\n\n"
         f"## Chart data\n{json.dumps(charts)}"
     )
-    return _structured(client, emit, CRITIC_SYSTEM, user, ReviewSet)
+    return _structured(client, emit, _system(CRITIC_SYSTEM, "risk"), user, ReviewSet)

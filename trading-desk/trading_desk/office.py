@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 PAGE = Path(__file__).with_name("office.html")
+NAMES = {"news": "Nia", "chart": "Kai", "signal": "Sol", "grok": "Grok", "risk": "Rook"}
 DESKS = ("news", "chart", "signal", "risk")  # the standing team; "grok" joins when enabled
 
 
@@ -29,7 +30,7 @@ class Office:
             "demo": demo, "run": 0, "phase": "idle", "error": "", "started": "", "next_run_at": None,
             "tickers": [], "desks": {d: _desk() for d in desks},
             "board": [], "market_context": "", "portfolio_note": "", "briefing": "",
-            "chart_read": [], "cross_market": "", "second_opinion": "",
+            "chart_read": [], "cross_market": "", "second_opinion": "", "chat": [],
         }
 
     def set(self, **kw) -> None:
@@ -49,6 +50,21 @@ class Office:
     def done(self, desk: str, summary: str) -> None:
         with self._lock:
             self._s["desks"][desk].update(status="done", doing="", summary=summary)
+
+    def say(self, desk: str, text: str) -> None:
+        """Post a message in the team group chat. The chat carries over between runs."""
+        if not text:
+            return
+        with self._lock:
+            self._s["chat"] = (self._s["chat"] + [{
+                "who": desk, "name": NAMES.get(desk, desk), "text": text,
+                "run": self._s["run"], "time": time.strftime("%H:%M"),
+            }])[-80:]
+
+    def transcript(self) -> str:
+        """This run's chat as plain lines, for the next agent's brief."""
+        with self._lock:
+            return "\n".join(f"{m['name']}: {m['text']}" for m in self._s["chat"] if m["run"] == self._s["run"])
 
     def desk_error(self, desk: str, message: str) -> None:
         """One desk failed but the run carries on without it."""

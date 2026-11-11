@@ -53,6 +53,14 @@ button:disabled{opacity:.5;cursor:default}
 .bd{font-size:11px;fill:#33302a} .bdh{font-size:10px;font-weight:700;letter-spacing:.1em;fill:#6f695e}
 @media (prefers-reduced-motion: reduce){#room *{animation:none!important}}
 
+/* team chat */
+.chatwrap{max-width:1200px;margin:0 auto;padding:10px 16px 0}
+.chatwrap h2{margin:0 0 6px}
+#chat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;max-height:210px;overflow-y:auto}
+.msg{display:flex;gap:8px;padding:3px 0;font-size:14px;align-items:baseline}
+.msg b{flex:none;min-width:44px} .msg span{flex:1;min-width:0;overflow-wrap:anywhere} .msg i{flex:none;font-style:normal;font-size:11.5px;color:var(--muted)}
+.runsep{font-size:11.5px;color:var(--muted);text-align:center;letter-spacing:.06em;padding:4px 0 2px}
+
 /* desk panels */
 .panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;padding:14px 16px;max-width:1200px;margin:0 auto}
 .desk{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -118,6 +126,10 @@ footer{color:var(--muted);font-size:12px;margin-top:24px}
   <g id="front"></g>
 </svg>
 
+<section class="chatwrap" aria-label="Team group chat">
+  <h2>Team chat</h2>
+  <div id="chat"><p class="empty" style="margin:2px 0">Quiet so far. Each of them posts when their work is done.</p></div>
+</section>
 <section class="panels" id="panels" aria-label="What each agent is doing"></section>
 <main>
   <div class="err" id="err" hidden></div>
@@ -217,7 +229,32 @@ function goHome(c,then){ if(atSeat(c)&&!c.path.length){ if(then)then(); } else r
 let pinnedRun=-1, latest=null;
 function say(c,text){
   const s=c.g.querySelector(".say"); s.setAttribute("display",text?"inline":"none"); if(!text)return;
-  const w=Math.max(44,text.length*6.4+18); const r=s.firstChild; r.setAttribute("x",-w/2); r.setAttribute("width",w); s.lastChild.textContent=text;
+  const w=Math.max(44,text.length*6.4+18);
+  const shift=Math.max(8-(c.x-w/2),0)+Math.min(992-(c.x+w/2),0);   // keep the bubble inside the room
+  const r=s.firstChild; r.setAttribute("x",shift-w/2); r.setAttribute("width",w);
+  s.lastChild.setAttribute("x",shift); s.lastChild.textContent=text;
+}
+let chatSeen=-1;
+function renderChat(s){
+  const n=s.chat.length, lastKey=n?s.chat[n-1].run+s.chat[n-1].who+s.chat[n-1].text:"";
+  if(renderChat.key===lastKey+n) return;
+  renderChat.key=lastKey+n;
+  if(n){
+    const rows=[]; let run=null;
+    for(const m of s.chat){
+      if(m.run!==run){ run=m.run; rows.push(el("div","runsep",`RUN ${m.run}`)); }
+      const row=el("div","msg"), who=el("b",null,m.name);
+      who.style.color=(ROSTER[m.who]||{}).color||"inherit";
+      row.append(who,el("span",null,m.text),el("i",null,m.time)); rows.push(row);
+    }
+    $("chat").replaceChildren(...rows); $("chat").scrollTop=$("chat").scrollHeight;
+  }
+  // whoever just posted says it out loud in the room for a few seconds
+  if(chatSeen>=0) for(const m of s.chat.slice(Math.min(chatSeen,n))){
+    const c=chars[m.who]; if(!c) continue;
+    c.chatText=m.text.length>34?m.text.slice(0,33)+"…":m.text; c.chatUntil=performance.now()+6000;
+  }
+  chatSeen=n;
 }
 function pins(){
   const rows=latest&&pinnedRun===latest.run?latest.board:[];
@@ -242,7 +279,8 @@ function onState(s){
       const drop=()=>{ c.carry=false; if(!next){ pinnedRun=latest.run; pins(); } c.wanderAt=performance.now()+1500; goHome(c); };
       route(c, next?{x:next.cx,y:AISLE_Y}:SPOTS.board, drop);
     }
-    say(c, st==="working"?(s.desks[t.id].doing||"working")+"…":st==="error"?"something broke!":"");
+    say(c, st==="working"?(s.desks[t.id].doing||"working")+"…":st==="error"?"something broke!"
+           :performance.now()<(c.chatUntil||0)?c.chatText:"");
   }
   pins();
 }
@@ -328,6 +366,7 @@ function render(s){
   const set=(id,t)=>{$(id).textContent=t||"—";$(id).classList.toggle("empty",!t)};
   set("port",[s.cross_market,s.market_context,s.portfolio_note].filter(Boolean).join(" "));set("brief",s.briefing);
   $("grokbox").hidden=!s.second_opinion; $("grok").textContent=s.second_opinion||"";
+  renderChat(s);
   onState(s);
 }
 async function poll(){

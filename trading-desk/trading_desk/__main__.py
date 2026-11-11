@@ -65,19 +65,24 @@ def run_once(args, client, office: Office) -> str:
 
     print("news desk...", file=sys.stderr)
     office.start("news")
-    briefing = agents.news_agent(client, now, calendar, office.emitter("news"))
+    briefing, said = agents.split_chat(agents.news_agent(client, now, calendar, office.emitter("news")))
     office.done("news", "Briefing handed to the signal desk")
+    office.say("news", said)
     office.set(briefing=briefing)
 
     print("chart desk...", file=sys.stderr)
     office.start("chart")
-    read = agents.chart_agent(client, now, charts, office.emitter("chart"))
+    read = agents.chart_agent(client, now, charts, office.emitter("chart"), office.transcript())
+    office.say("chart", read.chat)
     office.done("chart", ", ".join(f"{a.symbol}: {a.bias} ({a.bias_strength})" for a in read.analyses))
     office.set(chart_read=[a.model_dump() for a in read.analyses], cross_market=read.cross_market)
 
     print("signal desk...", file=sys.stderr)
     office.start("signal")
-    signals = agents.signal_agent(client, now, charts, briefing, read, office.emitter("signal"))
+    signals = agents.signal_agent(
+        client, now, charts, briefing, read, office.emitter("signal"), office.transcript()
+    )
+    office.say("signal", signals.chat)
     live = [s for s in signals.signals if s.direction != "flat"]
     office.done("signal", f"{len(live)} live signal(s), {len(signals.signals) - len(live)} flat — sent to risk")
 
@@ -97,7 +102,11 @@ def run_once(args, client, office: Office) -> str:
 
                 opinion = demo.second_opinion(office.emitter("grok"), bool(args.office))
             else:
-                opinion = grok.second_opinion(now, read, signals, sheet, briefing, office.emitter("grok"))
+                opinion = grok.second_opinion(
+                    now, read, signals, sheet, briefing, office.emitter("grok"), office.transcript()
+                )
+            opinion, said = agents.split_chat(opinion)
+            office.say("grok", said or opinion.split("\n")[0][:240])
             office.done("grok", "Second opinion handed to the risk desk")
             office.set(second_opinion=opinion)
         except Exception as e:  # Grok is an extra voice: without it the run still finishes
@@ -107,13 +116,16 @@ def run_once(args, client, office: Office) -> str:
     print("risk desk...", file=sys.stderr)
     office.start("risk")
     reviews = agents.critic_agent(
-        client, now, charts, briefing, read, signals, sheet, office.emitter("risk"), opinion
+        client, now, charts, briefing, read, signals, sheet, office.emitter("risk"), opinion,
+        office.transcript(),
     )
+    office.say("risk", reviews.chat)
+    chat = office.transcript()
     office.done("risk", ", ".join(f"{r.symbol}: {report.VERDICT[r.verdict]}" for r in reviews.reviews))
     office.set(board=_board(signals, reviews, sheet), market_context=signals.market_context,
                portfolio_note=reviews.portfolio_note, phase="idle")
 
-    md = report.render(now, briefing, signals, reviews, sheet, errors, read, opinion)
+    md = report.render(now, briefing, signals, reviews, sheet, errors, read, opinion, chat)
     if args.demo:
         return "> DEMO RUN — scripted output, not real analysis.\n\n" + md
     out = Path(args.out)
@@ -123,12 +135,12 @@ def run_once(args, client, office: Office) -> str:
     (out / f"{stem}.json").write_text(
         json.dumps(
             {"time": now, "news": briefing, "chart_read": read.model_dump(), "signals": signals.model_dump(),
-             "risk": sheet, "second_opinion": opinion, "reviews": reviews.model_dump(), "errors": errors},
+             "risk": sheet, "second_opinion": opinion, "chat": chat, "reviews": reviews.model_dump(), "errors": errors},
             indent=1,
         )
     )
     if args.vault:
-        latest = obsidian.write_run(args.vault, now_dt, md, signals, reviews, sheet)
+        latest = obsidian.write_run(args.vault, now_dt, md, signals, reviews, sheet, chat)
         obsidian.write_office_note(args.vault, args.office, latest)
     if args.webhook:
         report.push(args.webhook, md)

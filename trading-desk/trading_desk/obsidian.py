@@ -31,7 +31,7 @@ def write_office_note(vault: str, port: int | None, latest: str | None = None) -
         if port
         else "> Start the program with `--office` to embed the live office here."
     )
-    links = [f"- [[{FOLDER}/Signals log|Signals log]]"]
+    links = [f"- [[{FOLDER}/Signals log|Signals log]]", f"- [[{FOLDER}/Team chat|Team chat]]"]
     if latest:
         links.insert(0, f"- [[{FOLDER}/Reports/{latest}|Latest report — {latest}]]")
     note = root / "Office.md"
@@ -39,7 +39,7 @@ def write_office_note(vault: str, port: int | None, latest: str | None = None) -
     return note
 
 
-def write_run(vault: str, when: datetime, markdown: str, signals, reviews, sheet: list[dict]) -> str:
+def write_run(vault: str, when: datetime, markdown: str, signals, reviews, sheet: list[dict], chat: str = "") -> str:
     """File one run: a report note with properties, and rows in the signals log.
     Returns the report note's name."""
     root = Path(vault).expanduser() / FOLDER
@@ -53,6 +53,13 @@ def write_run(vault: str, when: datetime, markdown: str, signals, reviews, sheet
         r = rev.get(s.symbol)
         props.append(f"{s.symbol}: {s.direction}" + (f" / {report.VERDICT[r.verdict]}" if r else ""))
     (root / "Reports" / f"{name}.md").write_text("\n".join(props) + "\n---\n\n" + markdown + "\n")
+
+    if chat:  # the group chat is one running note, newest run at the bottom
+        with (root / "Team chat.md").open("a") as f:
+            if f.tell() == 0:
+                f.write("# Team chat\n")
+            f.write(f"\n## {when.strftime('%Y-%m-%d %H:%M')}\n\n")
+            f.writelines(f"**{n}:** {t}\n\n" for n, _, t in (l.partition(": ") for l in chat.splitlines()))
 
     log = root / "Signals log.md"
     rows = []

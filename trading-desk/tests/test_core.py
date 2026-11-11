@@ -224,13 +224,13 @@ def test_claude_code_backend(monkeypatch):
                 *[ev({"type": "content_block_delta", "delta": {"type": dt, key: d}}) for d in deltas],
                 ev({"type": "content_block_stop"})]
 
-    review = {"portfolio_note": "ok", "reviews": []}
+    review = {"portfolio_note": "ok", "chat": "", "reviews": []}
     scripts = {
         "news": [json.dumps({"type": "system", "subtype": "init"}), "not json",
                  *block("tool_use", "WebSearch", ['{"query": "CPI ', 'date", "mode": "extended"}']),
                  *block("text", None, ["CPI is ", "Thursday."]),
                  json.dumps({"type": "result", "is_error": False, "result": "CPI is Thursday."})],
-        "risk": [*block("tool_use", "StructuredOutput", ['{"portfolio_note"', ': "ok", "reviews": []}']),
+        "risk": [*block("tool_use", "StructuredOutput", ['{"portfolio_note"', ': "ok", "chat": "", "reviews": []}']),
                  json.dumps({"type": "result", "is_error": False, "result": "", "structured_output": review})],
         "fail": [json.dumps({"type": "result", "is_error": True, "result": "Not logged in"})],
     }
@@ -239,7 +239,7 @@ def test_claude_code_backend(monkeypatch):
     class FakePopen:
         def __init__(self, cmd, **kw):
             launched.append(cmd)
-            sys_prompt = cmd[cmd.index("--system-prompt") + 1]
+            sys_prompt = cmd[cmd.index("--system-prompt") + 1].split("\n")[0]  # the chat rules follow the role
             self.stdout = iter(l + "\n" for l in scripts[sys_prompt])
             self.stdin = SimpleNamespace(write=lambda p: launched.append(p), close=lambda: None)
             self.stderr = SimpleNamespace(read=lambda: "")
@@ -350,8 +350,53 @@ def test_grok_failure_does_not_sink_the_run(tmp_path, monkeypatch):
 def test_grok_brief_is_cut_to_fit_the_command_line():
     from trading_desk import grok
 
-    read = agents.ChartBook(cross_market="x", analyses=[])
-    signals = agents.SignalSet(market_context="x", signals=[])
+    read = agents.ChartBook(chat="", cross_market="x", analyses=[])
+    signals = agents.SignalSet(chat="", market_context="x", signals=[])
     prompt = grok.build_prompt("now", read, signals, [], "n" * 60_000)
     assert len(prompt) <= grok.MAX_ARG and "briefing cut short" in prompt
     assert "cut short" not in grok.build_prompt("now", read, signals, [], "short news")
+
+
+def test_team_chat(tmp_path, monkeypatch):
+    """Every agent posts once, later agents see what was said before them, and the
+    chat reaches the office, the report and the vault."""
+    from trading_desk import grok
+
+    monkeypatch.setattr(grok.shutil, "which", lambda name: "/bin/" + name)
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen["grok"] = cmd[2]
+        return SimpleNamespace(returncode=0, stdout="CHAT: Not sold on SPX, Sol.\n\nFull view here.", stderr="")
+
+    monkeypatch.setattr(grok.subprocess, "run", fake_run)
+    md, client, state = run_demo(tmp_path, monkeypatch, grok=True)
+
+    assert [m["name"] for m in state["chat"]] == ["Nia", "Kai", "Sol", "Grok", "Rook"]
+    assert state["chat"][3]["text"] == "Not sold on SPX, Sol." and state["second_opinion"] == "Full view here."
+    assert "CHAT:" not in state["briefing"] and "No-trade windows" in state["briefing"]
+    news_call, chart_call, signal_call, critic_call = client.calls
+    assert "group chat" in news_call["system"] and "final line" in news_call["system"]
+    assert "You are Kai" in chart_call["system"] and "`chat` field" in chart_call["system"]
+    assert "Nia: Demo: CPI lands" in chart_call["messages"][0]["content"]  # Kai sees Nia's message
+    assert "Kai: Demo: indices are stacked" in signal_call["messages"][0]["content"]
+    assert "Sol: Demo: taking Kai" in seen["grok"]
+    assert "Grok: Not sold on SPX, Sol." in critic_call["messages"][0]["content"]
+    assert "## Team chat" in md and "- **Rook:** Demo: Sol, MNQ and SPX are the same trade." in md
+    chat_note = (tmp_path / "vault" / "Trading Desk" / "Team chat.md").read_text()
+    assert chat_note.startswith("# Team chat") and "**Grok:** Not sold on SPX, Sol." in chat_note
+
+
+def test_split_chat():
+    assert agents.split_chat("body\nmore\nCHAT: hi team") == ("body\nmore", "hi team")
+    assert agents.split_chat("chat: first\n\nbody") == ("body", "first")
+    assert agents.split_chat("no chat line here") == ("no chat line here", "")
+
+
+def test_chat_carries_over_between_runs():
+    office = Office()
+    office.begin_run("a"); office.say("news", "one"); office.say("news", "")
+    office.begin_run("b"); office.say("chart", "two")
+    state = json.loads(office.json())
+    assert [(m["name"], m["run"]) for m in state["chat"]] == [("Nia", 1), ("Kai", 2)]
+    assert office.transcript() == "Kai: two"  # agents only see the current run

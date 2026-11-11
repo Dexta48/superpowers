@@ -28,6 +28,11 @@ You gain nothing by agreeing.
 
 Answer from this brief alone. Do not run commands, read files or use any tools.
 
+The desk has a group chat: Nia (news), Kai (charts), Sol (signals), Rook (risk) and you, \
+Grok. Start your answer with one line beginning `CHAT:` — one or two short sentences to your \
+teammates with your headline view, answering Sol or anyone else by name if you disagree with \
+what they said in the chat. Then leave a blank line and give the full answer.
+
 For each market, in this order: say whether you agree, partly agree or disagree with the \
 signal (including a flat call); give your single strongest objection or the main thing it \
 gets right; and name anything it missed. Then finish with one short paragraph on the overall \
@@ -35,6 +40,9 @@ picture and what you would do differently. Be specific, refer to the numbers giv
 the whole answer under 350 words in plain text.
 
 Current time: {now}
+
+## Team group chat so far
+{chat}
 
 ## Chart analyst's technical read
 {read}
@@ -50,10 +58,10 @@ Current time: {now}
 """
 
 
-def build_prompt(now: str, read, signals, risk: list[dict], news: str) -> str:
+def build_prompt(now: str, read, signals, risk: list[dict], news: str, chat: str = "") -> str:
     def fill(n):
         return BRIEF.format(now=now, read=read.model_dump_json(), signals=signals.model_dump_json(),
-                            risk=json.dumps(risk), news=n)
+                            risk=json.dumps(risk), news=n, chat=chat or "(nothing yet)")
 
     prompt = fill(news)
     if len(prompt) > MAX_ARG:  # only the news can be long; cut it and say so in the brief
@@ -83,9 +91,9 @@ def ask(prompt: str, timeout: int = 420) -> str:
     return out
 
 
-def second_opinion(now: str, read, signals, risk: list[dict], news: str, emit=lambda k, t: None) -> str:
+def second_opinion(now: str, read, signals, risk: list[dict], news: str, emit=lambda k, t: None, chat: str = "") -> str:
     emit("doing", "thinking")
-    text = ask(build_prompt(now, read, signals, risk, news))
+    text = ask(build_prompt(now, read, signals, risk, news, chat))
     emit("screen_reset", "")
     emit("screen", text)
     return text

@@ -11,10 +11,12 @@ VERDICT = {
 }
 
 
-def render(now: str, news: str, signals, reviews, risk: list[dict], errors: list[str], read=None, opinion: str = "") -> str:
+def render(now: str, news: str, signals, reviews, risk: list[dict], errors: list[str], read=None, opinion: str = "", chat: str = "") -> str:
     out = [f"# Trading desk — {now}", ""]
     if errors:
         out += ["> **Data problems:** " + "; ".join(errors), ""]
+    if chat:
+        out += ["## Team chat", ""] + [f"- **{n}:** {t}" for n, _, t in (l.partition(": ") for l in chat.splitlines())] + [""]
     out += ["## Signals", "", signals.market_context, ""]
     rev = {r.symbol: r for r in reviews.reviews}
     rk = {r["symbol"]: r for r in risk}
