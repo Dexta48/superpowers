@@ -62,6 +62,7 @@ python -m trading_desk --office --demo
 |---|---|
 | `--symbols MGC MNQ` | Subset of instruments |
 | `--account`, `--risk-pct` | Account size and max % risked per trade, used for position sizing |
+| `--source rithmic` | Real-time futures data through your Rithmic login (default `yahoo`, delayed) |
 | `--office [PORT]` | Open the office page (default port 8765) |
 | `--vault PATH` | Obsidian vault to file reports, the signals log and the Office note in |
 | `--demo` | Scripted fake run, clearly labelled; nothing real is fetched or called |
@@ -71,6 +72,45 @@ python -m trading_desk --office --demo
 
 `TRADING_DESK_MODEL` (default `claude-opus-5-5`) and `TRADING_DESK_EFFORT` (default `high`)
 override the model settings. Each run is three model calls, one of them with web search.
+
+## Real-time data (Rithmic / TradeSea)
+
+TradeSea has no data API of its own, but it runs on Rithmic and your TradeSea login is a
+Rithmic login. `--source rithmic` uses that login to pull real-time futures bars:
+
+```bash
+export RITHMIC_USER="your login"
+```
+
+```bash
+export RITHMIC_PASSWORD="your password"
+```
+
+```bash
+export RITHMIC_SYSTEM="system name from your firm"
+```
+
+```bash
+export RITHMIC_URL="gateway host:port from your firm"
+```
+
+```bash
+python -m trading_desk --source rithmic --data-only
+```
+
+That last command is the test: it prints the chart data and makes no model calls. If it
+prints prices with a current `last_bar_time`, real-time data works; add `--source rithmic` to
+your normal runs. If it fails to log in, your firm has not enabled API access on the account
+— ask their support to.
+
+- **Read-only.** It connects to Rithmic's market-data and history servers only, never the
+  order server, so it cannot place or touch a trade.
+- **System name and gateway** are specific to your prop firm; they are the same values other
+  Rithmic platforms (R|Trader, Sierra Chart) ask for.
+- **Sessions.** Rithmic limits simultaneous logins. If TradeSea drops its data when this
+  connects, your account allows only one market-data session at a time.
+- **SPX becomes MES.** Rithmic carries futures, not the cash index, so the S&P desk reads
+  the MES front-month contract and the agents are told the prices are futures prices.
 
 ## Obsidian
 
@@ -91,7 +131,7 @@ local folder, so this works on the computer where both it and the program run.
 
 ## Things to know
 
-- **Data is Yahoo Finance via `yfinance`** (`MGC=F`, `MNQ=F`, `^GSPC`): free, unofficial and
+- **Default data is Yahoo Finance via `yfinance`** (`MGC=F`, `MNQ=F`, `^GSPC`): free, unofficial and
   delayed about 10–15 minutes for futures. Fine for swing and slower intraday levels, not for
   scalping. Swap `data.fetch` for your broker's feed if you need real time.
 - **SPX is a cash index.** Levels are on the index; dollar risk is sized as MES ($5/point).

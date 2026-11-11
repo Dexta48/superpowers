@@ -74,7 +74,7 @@ def run_demo(tmp_path, monkeypatch, **client_kw):
     client = demo.FakeClient(**client_kw)
     args = SimpleNamespace(symbols=["MNQ", "MGC", "SPX"], account=10_000, risk_pct=1.0,
                            data_only=False, demo=False, out=str(tmp_path / 'out'), webhook=None,
-                           vault=str(tmp_path / 'vault'), office=8765)
+                           vault=str(tmp_path / 'vault'), office=8765, source='yahoo')
     office = Office()
     return cli.run_once(args, client, office), client, json.loads(office.json())
 
@@ -151,3 +151,49 @@ def test_push_chunks(monkeypatch):
     text = "".join(f"line {i}\n" for i in range(600)) + "x" * 5000
     report.push("http://hook", text)
     assert all(len(c) <= 1900 for c in sent) and "".join(sent) == text
+
+
+def test_rithmic_source(monkeypatch):
+    """Bars from a (faked) Rithmic session become chart data; only data servers are used."""
+    import async_rithmic
+    from trading_desk import rithmic
+
+    seen = {}
+
+    class FakeRithmic:
+        def __init__(self, **kw):
+            seen["init"] = kw
+
+        async def connect(self, plants):
+            seen["plants"] = plants
+
+        async def get_front_month_contract(self, root, exchange):
+            if root == "MGC":
+                raise RuntimeError("no market data permission")
+            return root + "Z6"
+
+        async def get_historical_time_bars(self, contract, exchange, start, end, bar_type, period):
+            seen.setdefault("req", []).append((contract, exchange, bar_type, period))
+            return [dict(marker=1_780_000_000 + i * 900, open_price=100 + i, high_price=101 + i,
+                         low_price=99 + i, close_price=100.5 + i, volume=10) for i in (1, 0, 2, 2)]
+
+        async def disconnect(self):
+            seen["closed"] = True
+
+    monkeypatch.setattr(async_rithmic, "RithmicClient", FakeRithmic)
+    for k in rithmic.ENV:
+        monkeypatch.setenv(k, "x")
+    fetch = rithmic.fetcher([INSTRUMENTS["MNQ"], INSTRUMENTS["SPX"], INSTRUMENTS["MGC"]])
+
+    df = fetch(INSTRUMENTS["SPX"], "15m")
+    assert list(df["Close"]) == [100.5, 101.5, 102.5] and df.index.is_monotonic_increasing  # sorted, de-duplicated
+    assert ("MESZ6", "CME", async_rithmic.TimeBarType.MINUTE_BAR, 15) in seen["req"]
+    assert ("MNQZ6", "CME", async_rithmic.TimeBarType.DAILY_BAR, 1) in seen["req"]
+    assert async_rithmic.SysInfraType.ORDER_PLANT not in seen["plants"] and seen["closed"]
+    with pytest.raises(RuntimeError, match="permission"):
+        fetch(INSTRUMENTS["MGC"], "1d")
+    assert data.chart_pack(INSTRUMENTS["MNQ"], fetch)["timeframes"]["1h"]["last"] == 102.5
+
+    monkeypatch.delenv("RITHMIC_URL")
+    with pytest.raises(RuntimeError, match="RITHMIC_URL"):
+        rithmic.fetcher([INSTRUMENTS["MNQ"]])

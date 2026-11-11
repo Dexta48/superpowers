@@ -89,10 +89,11 @@ def snapshot(df: pd.DataFrame, timeframe: str) -> dict:
     return out
 
 
-def chart_pack(inst: Instrument) -> dict:
+def chart_pack(inst: Instrument, fetch_fn=None) -> dict:
+    fetch_fn = fetch_fn or fetch
     return {
         "symbol": inst.symbol,
         "description": inst.description,
         "tick": inst.tick,
-        "timeframes": {tf: snapshot(fetch(inst, tf), tf) for tf in TIMEFRAMES},
+        "timeframes": {tf: snapshot(fetch_fn(inst, tf), tf) for tf in TIMEFRAMES},
     }

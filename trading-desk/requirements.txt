@@ -3,3 +3,4 @@ pydantic>=2
 pandas>=2
 yfinance>=0.2.50
 requests>=2
+async_rithmic>=1.6  # only needed for --source rithmic

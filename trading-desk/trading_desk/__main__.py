@@ -5,6 +5,7 @@ import argparse
 import json
 import sys
 import time
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -37,11 +38,17 @@ def run_once(args, client, office: Office) -> str:
     now = now_dt.strftime("%A %Y-%m-%d %H:%M %Z")
     office.begin_run(now)
     insts = [INSTRUMENTS[s] for s in args.symbols]
+    fetch = None
+    if args.source == "rithmic":
+        from . import rithmic
+
+        fetch = rithmic.fetcher(insts)  # one login for all symbols; raises if it cannot connect
+        insts = [replace(i, description=i.rithmic_note) if i.rithmic_note else i for i in insts]
 
     charts, errors = [], []
     for inst in insts:
         try:
-            charts.append(data.chart_pack(inst))
+            charts.append(data.chart_pack(inst, fetch))
         except Exception as e:  # one dead ticker should not sink the run
             errors.append(f"{inst.symbol}: {e}")
     if not charts:
@@ -107,6 +114,9 @@ def main() -> None:
     p.add_argument("--symbols", nargs="+", default=list(INSTRUMENTS), choices=list(INSTRUMENTS))
     p.add_argument("--account", type=float, default=10_000, help="account size in USD (default 10000)")
     p.add_argument("--risk-pct", type=float, default=1.0, help="max %% of account risked per trade (default 1)")
+    p.add_argument("--source", choices=["yahoo", "rithmic"], default="yahoo",
+                   help="price data: yahoo (free, ~10-15 min delayed) or rithmic (real time; uses your "
+                        "TradeSea/prop-firm Rithmic login from RITHMIC_* environment variables)")
     p.add_argument("--office", nargs="?", type=int, const=8765, metavar="PORT",
                    help="open the office: a local page where you watch the agents work (default port 8765)")
     p.add_argument("--demo", action="store_true",
