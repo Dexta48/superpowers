@@ -5,6 +5,7 @@ it behind a localhost-only HTTP server that the page polls."""
 from __future__ import annotations
 
 import json
+import os
 import socket
 import threading
 import time
@@ -121,9 +122,10 @@ class Office:
                 pass
 
         class Server(ThreadingHTTPServer):
-            # Off, because on Windows address reuse lets two programs share a port
-            # silently and the browser reaches whichever was there first.
-            allow_reuse_address = False
+            # Off on Windows, where address reuse lets two programs share a port silently
+            # and the browser reaches whichever was there first. On elsewhere, where it
+            # only lets a restarted office take its own port back straight away.
+            allow_reuse_address = os.name != "nt"
 
         def taken(p: int) -> bool:
             with socket.socket() as probe:
